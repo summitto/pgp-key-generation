@@ -34,8 +34,11 @@ int main(int argc, const char **argv)
     checker = crypto_sign_ed25519_pk_to_curve25519(curve25519_public.data() + 1, ed25519_public.data() + 1);
     checker = crypto_sign_ed25519_sk_to_curve25519(curve25519_secret.data(), ed25519_secret.data());
 
-    // throw away the public-key data from the secret key - gpg doesn't like it
+    // throw away the public-key data from the secret key - pgp doesn't like it
     ed25519_secret.resize(ed25519_secret.size() - crypto_sign_PUBLICKEYBYTES);
+
+    // reverse the curve25519 secret, since pgp stores this in little-endian format
+    std::reverse(curve25519_secret.begin(), curve25519_secret.end());
 
     // set the silly public key leading byte
     ed25519_public[0]       = 0x40;
