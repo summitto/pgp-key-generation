@@ -31,13 +31,19 @@ int main(int argc, const char **argv)
     master_key  master;
 
     // the user id, start and end of the signature validity
-    std::string user_id;
+    std::string user_name;
+    std::string user_email;
     std::tm     signature_creation;
     std::tm     signature_expiration;
 
     // read the user name to creat the key for
-    std::cout << "Your user id (username and email): ";
-    std::getline(std::cin, user_id);
+    std::cout << "Your name (firstname lastname): ";
+    std::getline(std::cin, user_name);
+    std::cout << "Your email address: ";
+    std::getline(std::cin, user_email);
+
+    // concatenate to a valid address
+    std::string user_id = user_name + " <" + user_email + ">";
 
     // read the start and end date
     std::cout << "Signature creation time (YYYY-MM-DD HH:MM:SS): ";
