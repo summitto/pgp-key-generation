@@ -81,7 +81,7 @@ int main(int argc, const char **argv)
             // process all the rolls in the input
             for (char roll : dice_input) {
                 // ignore whitespace and invalid data
-                if (roll < '0' || roll > '6') {
+                if (roll <= '0' || roll > '6') {
                     // invalid dice roll
                     continue;
                 }
