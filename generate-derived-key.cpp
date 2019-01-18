@@ -61,6 +61,9 @@ int main(int argc, const char **argv)
     if (!recovery_seed.empty()) {
         // parse it into the master key
         master = convert_string_to_numbers<crypto_kdf_KEYBYTES>(recovery_seed);
+
+        // and request the password for decryption
+        master = master.encrypt_symmetric();
     } else {
         // the dice result
         std::string dice_numbers;
@@ -117,6 +120,9 @@ int main(int argc, const char **argv)
 
     // if we don't have a seed, we created a new key, so we must show the seed output
     if (recovery_seed.empty()) {
+        // encrypt the master seed with a symmetric key
+        master = master.encrypt_symmetric();
+
         // show the seed now
         std::cout << "Please write down the following recovery seed: ";
 
