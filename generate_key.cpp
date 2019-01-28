@@ -3,7 +3,11 @@
 #include "errors.h"
 #include <sodium.h>
 #include <ctime>
+#include <cryptopp/eccrypto.h>
+#include <cryptopp/oids.h>
+#include <cryptopp/osrng.h>
 
+using namespace CryptoPP;
 
 /**
  *  Generate a complete key, including the required signatures
@@ -18,7 +22,11 @@
 std::vector<pgp::packet> generate_key(const master_key &master, std::string user, uint32_t creation, uint32_t signature, uint32_t expiration, boost::string_view context)
 {
     // the size of our secret keys
-    constexpr const auto secret_key_size = crypto_sign_SECRETKEYBYTES - crypto_sign_PUBLICKEYBYTES;
+    //constexpr const auto secret_key_size = crypto_sign_SECRETKEYBYTES - crypto_sign_PUBLICKEYBYTES;
+	
+	// There is no easily found size const for defining key length in cryptopp
+	constexpr const size_t SECRETKEYBYTES = 32;
+	constexpr const size_t PUBLICKEYBYTES = 64;
 
     // pgp likes the expiration timestamp to not be a timestamp (but still call it that)
     // but instead define it as the number of seconds since the key creation timestamp
@@ -28,48 +36,126 @@ std::vector<pgp::packet> generate_key(const master_key &master, std::string user
     error_checker<0> checker;
 
     // derive the keys from the master
-    derived_key<secret_key_size>    main_key_derivation             { master, 1, context };
-    derived_key<secret_key_size>    signing_key_derivation          { master, 2, context };
-    derived_key<secret_key_size>    encryption_key_derivation       { master, 3, context };
-    derived_key<secret_key_size>    authentication_key_derivation   { master, 4, context };
+    derived_key<SECRETKEYBYTES>    main_key_derivation             { master, 1, context };
+    derived_key<SECRETKEYBYTES>    signing_key_derivation          { master, 2, context };
+    derived_key<SECRETKEYBYTES>    encryption_key_derivation       { master, 3, context };
+    derived_key<SECRETKEYBYTES>    authentication_key_derivation   { master, 4, context };
 
     // holders for the key data - public keys get an extra byte because of the leading 0x40 byte that we need to add for pgp to work
-    std::vector<uint8_t>            main_key_public             (crypto_sign_PUBLICKEYBYTES + 1);           // main key, for signing and certification
-    std::vector<uint8_t>            main_key_secret             (crypto_sign_SECRETKEYBYTES);               // using ed25519 curve
-    std::vector<uint8_t>            signing_key_public          (crypto_sign_PUBLICKEYBYTES + 1);           // signing and certification subkey
-    std::vector<uint8_t>            signing_key_secret          (crypto_sign_SECRETKEYBYTES);               // using ed25519 curve
-    std::vector<uint8_t>            encryption_key_public       (crypto_scalarmult_curve25519_BYTES + 1);   // the subkey used for encryption
-    std::vector<uint8_t>            encryption_key_secret       (crypto_scalarmult_curve25519_BYTES);       // using curve25519
-    std::vector<uint8_t>            authentication_key_public   (crypto_sign_PUBLICKEYBYTES + 1);           // the subkey used for authentication
-    std::vector<uint8_t>            authentication_key_secret   (crypto_sign_SECRETKEYBYTES);               // using ed25519 curve again
+    std::vector<uint8_t>            main_key_public             (PUBLICKEYBYTES + 1);           // main key, for signing and certification
+    std::vector<uint8_t>            main_key_secret             (SECRETKEYBYTES);               // using ecdsa curve
+    std::vector<uint8_t>            signing_key_public          (PUBLICKEYBYTES + 1);           // signing and certification subkey
+    std::vector<uint8_t>            signing_key_secret          (SECRETKEYBYTES);               // using ecdsa curve
+    std::vector<uint8_t>            encryption_key_public       (PUBLICKEYBYTES + 1);   // the subkey used for encryption
+    std::vector<uint8_t>            encryption_key_secret       (SECRETKEYBYTES);       // using curve25519
+    std::vector<uint8_t>            authentication_key_public   (PUBLICKEYBYTES + 1);           // the subkey used for authentication
+    std::vector<uint8_t>            authentication_key_secret   (SECRETKEYBYTES);               // using ecdsa curve again
 
-    // temporary buffer for storing the ed25519 key we are only converting
-    std::vector<uint8_t>            temp_key_public             (crypto_sign_PUBLICKEYBYTES);
-    std::vector<uint8_t>            temp_key_secret             (crypto_sign_SECRETKEYBYTES);
 
-    // create the curve from the derived key
-    crypto_sign_seed_keypair(main_key_public.data() + 1,            main_key_secret.data(),             main_key_derivation.data());
-    crypto_sign_seed_keypair(signing_key_public.data() + 1,         signing_key_secret.data(),          signing_key_derivation.data());
-    crypto_sign_seed_keypair(temp_key_public.data(),                temp_key_secret.data(),             encryption_key_derivation.data());
-    crypto_sign_seed_keypair(authentication_key_public.data() + 1,  authentication_key_secret.data(),   authentication_key_derivation.data());
+	AutoSeededRandomPool prng;
 
-    // convert the temporary ed25519 key to a curve25519 key
-    checker = crypto_sign_ed25519_pk_to_curve25519(encryption_key_public.data() + 1,    temp_key_public.data());
-    checker = crypto_sign_ed25519_sk_to_curve25519(encryption_key_secret.data(),        temp_key_secret.data());
+	ECDSA<ECP, SHA1>::PrivateKey k1;
+	k1.Initialize( prng, ASN1::secp256r1() );
 
-    // throw away the public-key data from the secret key - pgp doesn't like it
-    main_key_secret.resize(main_key_secret.size()                       - crypto_sign_PUBLICKEYBYTES);
-    signing_key_secret.resize(signing_key_secret.size()                 - crypto_sign_PUBLICKEYBYTES);
-    authentication_key_secret.resize(authentication_key_secret.size()   - crypto_sign_PUBLICKEYBYTES);
+	const Integer& x1 = k1.GetPrivateExponent();
+	std::cout << "K1: " << std::hex << x1 << std::dec << std::endl;
 
-    // reverse the curve25519 secret, since pgp stores this in little-endian format
-    std::reverse(encryption_key_secret.begin(), encryption_key_secret.end());
+	ECDSA<ECP, SHA1>::PrivateKey mainKeySecret;
+	CryptoPP::Integer mainKeySecret_x;
+	mainKeySecret_x.Decode(main_key_derivation.data(), SECRETKEYBYTES);
+
+	mainKeySecret.Initialize(ASN1::secp256r1(), mainKeySecret_x);
+	
+	// std::cout << "master: ";
+	// for(const auto& s: master)
+	//         std::cout << (unsigned int) s << ' ';
+	// std::cout << "\n" << std::endl;
+	//
+	// std::cout << "main_key_derivation: ";
+	// for(const auto& b: main_key_derivation)
+	//         std::cout << (unsigned int) b << ' ';
+	// std::cout << "\n" << std::endl;
+	//
+	// std::cout << "Integer mainKeySecret_x: " <<  mainKeySecret_x << std::endl;
+	// std::cout << "Integer mainKeySecret_x: " << std::hex << mainKeySecret_x << std::dec << std::endl;
+	
+	const Integer& mainKeySecret_exponent = mainKeySecret.GetPrivateExponent();
+	mainKeySecret_exponent.Encode(main_key_secret.data(), main_key_secret.size());
+	
+	std::cout << "mainKeySecret_exponent: " <<  mainKeySecret_exponent << std::endl;
+	
+	ECDSA<ECP, SHA1>::PublicKey mainKeyPublic;
+	mainKeySecret.MakePublicKey(mainKeyPublic);
+	
+	const ECP::Point& mainKeyPublic_q = mainKeyPublic.GetPublicElement();
+	mainKeyPublic_q.x.Encode(main_key_public.data() + 1, 32);
+	mainKeyPublic_q.y.Encode(main_key_public.data() + 1 + mainKeyPublic_q.x.MinEncodedSize(), 32);
+
+	std::cout << "Public Key at generation - X:" <<std::hex << mainKeyPublic_q.x << " - Y: " <<  mainKeyPublic_q.y << std::dec << std::endl;
+
+
+
+
+
+	ECDSA<ECP, SHA1>::PrivateKey signingKeySecret;
+	CryptoPP::Integer signingKeySecret_x;
+	signingKeySecret_x.Decode(signing_key_derivation.data(), PUBLICKEYBYTES);
+
+	signingKeySecret.Initialize(ASN1::secp256r1(), signingKeySecret_x);
+	
+	const Integer& signingKeySecret_exponent = signingKeySecret.GetPrivateExponent();
+	signingKeySecret_exponent.Encode(signing_key_secret.data(), signing_key_secret.size());
+	
+	ECDSA<ECP, SHA1>::PublicKey signingKeyPublic;
+	signingKeySecret.MakePublicKey(signingKeyPublic);
+	
+	const ECP::Point& signingKeyPublic_q = signingKeyPublic.GetPublicElement();
+	signingKeyPublic_q.x.Encode(signing_key_public.data() + 1, 32);
+	signingKeyPublic_q.y.Encode(signing_key_public.data() + 1 + signingKeyPublic_q.x.MinEncodedSize(), 32);
+
+
+
+	ECDSA<ECP, SHA1>::PrivateKey encryptionKeySecret;
+	CryptoPP::Integer encryptionKeySecret_x;
+	encryptionKeySecret_x.Decode(encryption_key_derivation.data(), PUBLICKEYBYTES);
+
+	encryptionKeySecret.Initialize(ASN1::secp256r1(), encryptionKeySecret_x);
+	
+	const Integer& encryptionKeySecret_exponent = encryptionKeySecret.GetPrivateExponent();
+	encryptionKeySecret_exponent.Encode(encryption_key_secret.data(), encryption_key_secret.size());
+	
+	ECDSA<ECP, SHA1>::PublicKey encryptionKeyPublic;
+	encryptionKeySecret.MakePublicKey(encryptionKeyPublic);
+	
+	const ECP::Point& encryptionKeyPublic_q = encryptionKeyPublic.GetPublicElement();
+	encryptionKeyPublic_q.x.Encode(encryption_key_public.data() + 1, 32);
+	encryptionKeyPublic_q.y.Encode(encryption_key_public.data() + 1 + encryptionKeyPublic_q.x.MinEncodedSize(), 32);
+	
+	
+
+	ECDSA<ECP, SHA1>::PrivateKey authenticationKeySecret;
+	CryptoPP::Integer authenticationKeySecret_x;
+	authenticationKeySecret_x.Decode(authentication_key_derivation.data(), PUBLICKEYBYTES);
+
+	authenticationKeySecret.Initialize(ASN1::secp256r1(), authenticationKeySecret_x);
+	
+	const Integer& authenticationKeySecret_exponent = authenticationKeySecret.GetPrivateExponent();
+	authenticationKeySecret_exponent.Encode(authentication_key_secret.data(), authentication_key_secret.size());
+	
+	ECDSA<ECP, SHA1>::PublicKey authenticationKeyPublic;
+	authenticationKeySecret.MakePublicKey(authenticationKeyPublic);
+	
+	const ECP::Point& authenticationKeyPublic_q = authenticationKeyPublic.GetPublicElement();
+	authenticationKeyPublic_q.x.Encode(authentication_key_public.data() + 1, 32);
+	authenticationKeyPublic_q.y.Encode(authentication_key_public.data() + 1 + authenticationKeyPublic_q.x.MinEncodedSize(), 32);
+
+
 
     // set the silly public key leading byte
-    main_key_public[0]          = 0x40;
-    signing_key_public[0]       = 0x40;
-    encryption_key_public[0]    = 0x40;
-    authentication_key_public[0]= 0x40;
+    main_key_public[0]          = 0x04;
+    signing_key_public[0]       = 0x04;
+    encryption_key_public[0]    = 0x04;
+    authentication_key_public[0]= 0x04;
 
     // the vector of packets to generate
     std::vector<pgp::packet> packets;
@@ -81,10 +167,10 @@ std::vector<pgp::packet> generate_key(const master_key &master, std::string user
     packets.emplace_back(
         mpark::in_place_type_t<pgp::secret_key>{},                              // we are building a secret key
         creation,                                                               // created at
-        pgp::key_algorithm::eddsa,                                              // using the eddsa key algorithm
-        mpark::in_place_type_t<pgp::secret_key::eddsa_key_t>{},                 // key type
+        pgp::key_algorithm::ecdsa,                                              // using the eddsa key algorithm
+        mpark::in_place_type_t<pgp::secret_key::ecdsa_key_t>{},                 // key type
         std::forward_as_tuple(                                                  // public arguments
-            pgp::curve_oid::ed25519(),                                          // curve to use
+            pgp::curve_oid::ecdsa(),                                          	// curve to use
             pgp::multiprecision_integer{ std::move(main_key_public) }           // move in the public key point
         ),
         std::forward_as_tuple(                                                  // secret arguments
@@ -121,10 +207,10 @@ std::vector<pgp::packet> generate_key(const master_key &master, std::string user
     packets.emplace_back(
         mpark::in_place_type_t<pgp::secret_subkey>{},                           // we are building a secret subkey
         creation,                                                               // created at
-        pgp::key_algorithm::eddsa,                                              // using the eddsa key algorithm
-        mpark::in_place_type_t<pgp::secret_key::eddsa_key_t>{},                 // key type
+        pgp::key_algorithm::ecdsa,                                              // using the ecdsa key algorithm
+        mpark::in_place_type_t<pgp::secret_key::ecdsa_key_t>{},                 // key type
         std::forward_as_tuple(                                                  // public arguments
-            pgp::curve_oid::ed25519(),                                          // curve to use
+            pgp::curve_oid::ecdsa(),                                          	// curve to use
             pgp::multiprecision_integer{ std::move(signing_key_public) }        // move in the public key point
         ),
         std::forward_as_tuple(                                                  // secret arguments
@@ -154,10 +240,10 @@ std::vector<pgp::packet> generate_key(const master_key &master, std::string user
     packets.emplace_back(
         mpark::in_place_type_t<pgp::secret_subkey>{},                           // we are building a secret subkey
         creation,                                                               // created at
-        pgp::key_algorithm::ecdh,                                               // using the eddsa key algorithm
+        pgp::key_algorithm::ecdh,                                               // using the ecdsa key algorithm
         mpark::in_place_type_t<pgp::secret_key::ecdh_key_t>{},                  // key type
         std::forward_as_tuple(                                                  // public arguments
-            pgp::curve_oid::curve_25519(),                                      // curve to use
+            pgp::curve_oid::ecdsa(),                                      		// curve to use
             pgp::multiprecision_integer{ std::move(encryption_key_public) },    // move in the public key point
             pgp::hash_algorithm::sha256,                                        // use sha256 as hashing algorithm
             pgp::symmetric_key_algorithm::aes128                                // and aes128 as the symmetric key algorithm
@@ -189,10 +275,10 @@ std::vector<pgp::packet> generate_key(const master_key &master, std::string user
     packets.emplace_back(
         mpark::in_place_type_t<pgp::secret_subkey>{},                           // we are building a secret key
         creation,                                                               // created at
-        pgp::key_algorithm::eddsa,                                              // using the eddsa key algorithm
-        mpark::in_place_type_t<pgp::secret_key::eddsa_key_t>{},                 // key type
+        pgp::key_algorithm::ecdsa,                                              // using the ecdsa key algorithm
+        mpark::in_place_type_t<pgp::secret_key::ecdsa_key_t>{},                 // key type
         std::forward_as_tuple(                                                  // public arguments
-            pgp::curve_oid::ed25519(),                                          // curve to use
+            pgp::curve_oid::ecdsa(),                                          	// curve to use
             pgp::multiprecision_integer{ std::move(authentication_key_public) } // move in the public key point
         ),
         std::forward_as_tuple(                                                  // secret arguments
