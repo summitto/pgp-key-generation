@@ -14,6 +14,7 @@ GENERATING KEYS
 ===============
 
 - install the key generator on a secure, offline computer
+- make sure to setup a ramdisk for storing the .gnupg and the generated key file
 - run generate-derived-key to create the key and follow the prompts
 - import the generated key file into gpg with "gpg --import file"
 - insert the smart card (e.g. Yubikey or Nitrokey)
