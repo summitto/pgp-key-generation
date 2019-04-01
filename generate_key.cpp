@@ -105,7 +105,6 @@ std::vector<pgp::packet> generate_key(const master_key &master, std::string user
     // add self-signature for the key
     packets.emplace_back(
         mpark::in_place_type_t<pgp::signature>{},                               // we are making a signature
-        mpark::in_place_type_t<pgp::eddsa_signature>{},                         // of the eddsa kind
         main_key,                                                               // we sign with the main key
         user_id,                                                                // for this user
         pgp::signature_subpacket_set{{                                          // hashed subpackets
@@ -139,7 +138,6 @@ std::vector<pgp::packet> generate_key(const master_key &master, std::string user
     // now add a self-signature
     packets.emplace_back(
         mpark::in_place_type_t<pgp::signature>{},                               // subkey signature
-        mpark::in_place_type_t<pgp::eddsa_signature>{},                         // using eddsa signature generation
         main_key,                                                               // we sign with the main key
         signing_key,                                                            // indicating we own this subkey
         pgp::signature_subpacket_set{{                                          // hashed subpackets
@@ -175,7 +173,6 @@ std::vector<pgp::packet> generate_key(const master_key &master, std::string user
     // now add a self-signature
     packets.emplace_back(
         mpark::in_place_type_t<pgp::signature>{},                               // subkey signature
-        mpark::in_place_type_t<pgp::eddsa_signature>{},                         // using eddsa signature generation
         main_key,                                                               // we sign with the main key
         encryption_key,                                                         // indicating we own this subkey
         pgp::signature_subpacket_set{{                                          // hashed subpackets
@@ -209,7 +206,6 @@ std::vector<pgp::packet> generate_key(const master_key &master, std::string user
     // and add a signature for that as well
     packets.emplace_back(
         mpark::in_place_type_t<pgp::signature>{},                               // subkey signature
-        mpark::in_place_type_t<pgp::eddsa_signature>{},                         // using eddsa signature generation
         main_key,                                                               // we sign with the main key
         authentication_key,                                                     // indicating we own this subkey
         pgp::signature_subpacket_set{{                                          // hashed subpackets
