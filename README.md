@@ -10,18 +10,23 @@ DEPENDENCIES
 This repository depends only on the pgp-packet-library - and the
 dependencies it has.
 
-GENERATING KEYS
+GENERATING NEW KEYS
 ===============
 
 - If you have a new smartcard, change the user and admin pin first. See: https://www.gnupg.org/howtos/card-howto/en/ch03s02.html
 
 - install the key generator on a secure, offline computer
 - install `gpg` on both your main device, as well as the secure offline computer. Optionally, `scdaemon`, `libccid` and `pcscd` may need to be used.
-- make sure to setup a ramdisk for storing the .gnupg and the generated key file. Create the .gnupg folder after setting up the ramdisk
-- run generate-derived-key to create the key and follow the prompts
+- make sure to setup a ramdisk for storing the .gnupg and the generated key file. Create the .gnupg folder after setting up the ramdisk.
+- run generate-derived-key to create the key and follow the prompts.
 ..- Example of a creation date: 2018-12-31 23:59:59
 ..- Example of an expiry date:  2019-03-31 23:59:59
+..- The program will ask for a passphrase.
+..- The program will eiter generate a new encrypted seed or you can use an existing encrypted seed. If you generate a new seed, store it in a secure place.
 - import the generated key file into gpg with "gpg --import file"
+
+If you have a smart card, you can import the private key as follows:
+
 - insert the smart card (e.g. Yubikey or Nitrokey)
 - run gpg --key-edit keyid
 - toggle
@@ -48,3 +53,7 @@ You should now have a functional key. You can test it as follows:
 - gpg -r [key id] --encrypt test.txt
 - gpg --decrypt test.txt.gpg
 
+UPDATING EXISTING KEYS
+===============
+
+If you want to change the expiry date of existing keys, you can simply follow the steps above again to generate a new key with a different expiry date, using your encrypted seed and passphrase.
