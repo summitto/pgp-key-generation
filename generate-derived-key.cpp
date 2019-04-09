@@ -96,6 +96,10 @@ int main(int argc, const char **argv)
                 dice_numbers.push_back(roll);
             }
         }
+    
+      // hash dice numbers together with random key
+      crypto_generichash(master.data(), master.size(), reinterpret_cast<const unsigned char *>( dice_numbers.data() ), dice_numbers.size(), master.data(), master.size()); 
+      
     }
 
     // convert the dates to a timestamp
