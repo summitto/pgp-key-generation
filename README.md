@@ -18,7 +18,7 @@ GENERATING NEW KEYS
 - install the key generator on a secure, offline computer
 - install `gpg` on both your main device, as well as the secure offline computer. Optionally, `scdaemon`, `libccid` and `pcscd` may need to be used.
 - make sure to setup a ramdisk for storing the .gnupg and the generated key file. Create the .gnupg folder after setting up the ramdisk.
-- run generate-derived-key to create the key and follow the prompts.
+- run generate_derived_key to create the key and follow the prompts.
 
    Example of a creation date: 2018-12-31 23:59:59  
    Example of an expiry date:  2019-03-31 23:59:59  
