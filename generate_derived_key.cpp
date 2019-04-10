@@ -1,14 +1,123 @@
+#include <boost/program_options.hpp>
+#include <boost/utility/string_view.hpp>
 #include <pgp-packet/range_encoder.h>
 #include <pgp-packet/packet.h>
 #include "derived_key.h"
 #include <sodium.h>
 #include <iomanip>
 #include <fstream>
+#include <string>
 #include "errors.h"
 #include "generate_key.h"
 #include "hexadecimal.h"
 #include "parameters_eddsa.h"
 #include "parameters_ecdsa.h"
+
+namespace {
+    /**
+     *  Which type of key should be generated?
+     */
+    enum class key_class {
+        eddsa,
+        ecdsa,
+    };
+
+    /**
+     *  Get a description of the key class
+     *
+     *  @param  type        The key class to get a description for
+     *  @return The description of that key class
+     */
+    constexpr boost::string_view key_class_description(key_class type) noexcept
+    {
+        switch (type) {
+            case key_class::eddsa:   return "EDDSA";
+            case key_class::ecdsa:   return "ECDSA";
+        }
+        return "Unknown key type";
+    }
+
+    /**
+     *  The parsed program options.
+     */
+    struct Options {
+        std::string output_file;
+        key_class type = key_class::eddsa;
+    };
+
+    /**
+     *  Parse options from the program command-line arguments.
+     *
+     *  @param  argc    The 'argc' parameter to main();
+     *  @param  argv    The 'argv' parameter to main();
+     */
+    Options parse_options(int argc, const char **argv) {
+        namespace po = boost::program_options;
+
+        po::options_description hidden("Hidden options");
+        hidden.add_options()
+            ("output-file,o", po::value<std::string>(), "output file");
+
+        po::options_description generic("Generic options");
+        generic.add_options()
+            ("help,h", "produce help message")
+            ("key-type,t", po::value<std::string>(), "type of the generated key (eddsa/ecdsa)");
+
+        po::positional_options_description pos_desc;
+        pos_desc.add("output-file", 1);
+
+        // hide the positional options from the --help view
+        po::options_description visible;
+        visible.add(generic);
+
+        po::options_description all_opts;
+        all_opts.add(visible).add(hidden);
+
+        po::variables_map vm;
+        po::store(
+            po::command_line_parser(argc, argv)
+                .options(all_opts).positional(pos_desc).run(),
+            vm
+        );
+        po::notify(vm);
+
+        if (vm.count("help")) {
+            std::cout << "Usage: " << argv[0] << " [options] <output-file>" << std::endl;
+            std::cout << std::endl;
+            std::cout << "This program will deterministically generate a PGP key based on user-provided entropy." << std::endl;
+            std::cout << "The program will prompt for the required input on standard input." << std::endl;
+            std::cout << std::endl;
+            std::cout << "Note that the generated signatures may not be deterministic, since making cryptographic signatures" << std::endl;
+            std::cout << "is in general a non-deterministic process. The key, however, is deterministic." << std::endl;
+            std::cout << std::endl;
+            std::cout << "This program is a work-in-progress, and is not adequately documented yet. Proceed with caution." << std::endl;
+            std::cout << visible << std::endl;
+            exit(0);
+        }
+
+        Options options;
+        if (vm.count("output-file")) {
+            options.output_file = vm["output-file"].as<std::string>();
+        } else {
+            std::cerr << "The output-file argument is required." << std::endl;
+            exit(1);
+        }
+
+        if (vm.count("key-type")) {
+            const std::string &value = vm["key-type"].as<std::string>();
+            if (value == "eddsa") {
+                options.type = key_class::eddsa;
+            } else if (value == "ecdsa") {
+                options.type = key_class::ecdsa;
+            } else {
+                std::cerr << "Unrecognised key type '" << value << "'." << std::endl;
+                exit(1);
+            }
+        }
+
+        return options;
+    }
+}
 
 /**
  *  Main function
@@ -18,12 +127,12 @@
  */
 int main(int argc, const char **argv)
 {
-    // check whether we got necessary parameters
-    if (argc != 2) {
-        // missing filename argument
-        std::cerr << "Usage: " << argv[0] << " <output filename>" << std::endl;
-        return 0;
-    }
+    // parse the command-line arguments
+    Options options = parse_options(argc, argv);
+
+    // inform the user about the settings in the command-line arguments
+    std::cout << "Using key type " << key_class_description(options.type) << std::endl;
+    std::cout << "Writing key to file '" << options.output_file << "'" << std::endl;
 
     // the kdf context and the time at which all keys are created
     constexpr const auto kdf_context            = "summitto";
@@ -115,8 +224,15 @@ int main(int argc, const char **argv)
     // initialize libsodium
     checker = sodium_init();
 
+    // select the function with which to generate the packets
+    std::function<std::vector<pgp::packet>(const master_key&, std::string, uint32_t, uint32_t, uint32_t, boost::string_view)> generation_function;
+    switch (options.type) {
+        case key_class::eddsa: generation_function = generate_key<parameters::eddsa>; break;
+        case key_class::ecdsa: generation_function = generate_key<parameters::ecdsa>; break;
+    }
+
     // generate the packets
-    auto packets = generate_key<parameters::eddsa>(master, std::move(user_id), key_creation_timestamp, signature_creation_timestamp, signature_expiration_timestamp, kdf_context);
+    auto packets = generation_function(master, std::move(user_id), key_creation_timestamp, signature_creation_timestamp, signature_expiration_timestamp, kdf_context);
 
     // determine output size, create a vector for it and provide it to the encoder
     size_t                  data_size   ( std::accumulate(packets.begin(), packets.end(), 0, [](size_t a, auto &&b) -> size_t { return a + b.size(); }) );
@@ -129,7 +245,7 @@ int main(int argc, const char **argv)
     }
 
     // write it to the requested file
-    std::ofstream{ argv[1] }.write(reinterpret_cast<const char*>(out_data.data()), encoder.size());
+    std::ofstream{ options.output_file }.write(reinterpret_cast<const char*>(out_data.data()), encoder.size());
 
     // if we don't have a seed, we created a new key, so we must show the seed output
     if (recovery_seed.empty()) {

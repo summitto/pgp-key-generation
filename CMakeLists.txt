@@ -4,7 +4,8 @@ project(pgp-test)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 
 find_package(pgp-packet REQUIRED)
-find_package(Boost      REQUIRED)
+find_package(Boost      REQUIRED
+    COMPONENTS system program_options)
 find_package(CryptoPP   REQUIRED)
 
 set(sources-list
@@ -25,6 +26,7 @@ target_link_libraries(generate_derived_key pgp-packet)
 
 # Add Boost
 target_include_directories(generate_derived_key PUBLIC ${Boost_INCLUDE_DIRS})
+target_link_libraries(generate_derived_key Boost::system Boost::program_options)
 
 # Add CryptoPP
 target_include_directories(generate_derived_key PRIVATE ${CRYPTOPP_INCLUDE_DIRS})
