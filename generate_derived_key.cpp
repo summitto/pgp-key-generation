@@ -63,6 +63,8 @@ int main(int argc, const char **argv)
         std::getline(std::cin, recovery_seed);
     }
 
+    static_assert(crypto_kdf_KEYBYTES == crypto_generichash_BYTES);
+
     // did we get a recovery seed?
     if (!recovery_seed.empty()) {
         // parse it into the master key
