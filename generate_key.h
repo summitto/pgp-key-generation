@@ -7,6 +7,7 @@
 #include <ctime>
 
 
+#if HAVE_CPP20_CONCEPTS
 template <typename T>
 concept bool KeyParameters() {
     return requires(T a) {
@@ -79,6 +80,11 @@ concept bool KeyParameters() {
         );
     };
 };
+#else
+// If we don't have concepts support, let the "KeyParameters params_t" declaration just read
+// "typename params_t".
+#define KeyParameters typename
+#endif
 
 /**
  *  Generate a complete key, including the required signatures
