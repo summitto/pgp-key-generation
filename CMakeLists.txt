@@ -40,3 +40,5 @@ if (CMAKE_COMPILER_IS_GNUCC AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 8.2)
     set_property(TARGET generate_derived_key PROPERTY CXX_STANDARD 20)
     add_compile_options(-fconcepts -DHAVE_CPP20_CONCEPTS)
 endif()
+
+add_subdirectory(tests)
