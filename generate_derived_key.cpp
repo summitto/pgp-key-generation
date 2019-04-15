@@ -243,8 +243,8 @@ namespace {
             ("key-type,t",    po::value<opt_prompt<key_class>>  (&options.type),                 "Type of the generated key (eddsa/ecdsa)")
             ("name,n",        po::value<opt_prompt<std::string>>(&options.user_name),            "Your name (firstname lastname)")
             ("email,e",       po::value<opt_prompt<std::string>>(&options.user_email),           "Your email address")
-            ("sigtime,s",     po::value<opt_prompt<tm_wrapper>> (&options.signature_creation),   "Signature creation time (YYYY-MM-DD HH:MM:SS)")
-            ("sigexpiry,x",   po::value<opt_prompt<tm_wrapper>> (&options.signature_expiration), "Signature expiration time (YYYY-MM-DD HH:MM:SS)");
+            ("sigtime,s",     po::value<opt_prompt<tm_wrapper>> (&options.signature_creation),   "Signature creation time in UTC (YYYY-MM-DD HH:MM:SS)")
+            ("sigexpiry,x",   po::value<opt_prompt<tm_wrapper>> (&options.signature_expiration), "Signature expiration time in UTC (YYYY-MM-DD HH:MM:SS)");
 
         // run the option parser
         po::variables_map vm;
@@ -281,8 +281,8 @@ namespace {
         options.type                .ensure_prompt("Type of the generated key (eddsa/ecdsa)");
         options.user_name           .ensure_prompt("Your name (firstname lastname)");
         options.user_email          .ensure_prompt("Your email address");
-        options.signature_creation  .ensure_prompt("Signature creation time (YYYY-MM-DD HH:MM:SS)");
-        options.signature_expiration.ensure_prompt("Signature expiration time (YYYY-MM-DD HH:MM:SS)");;
+        options.signature_creation  .ensure_prompt("Signature creation time in UTC (YYYY-MM-DD HH:MM:SS)");
+        options.signature_expiration.ensure_prompt("Signature expiration time in UTC (YYYY-MM-DD HH:MM:SS)");;
 
         // return the created options struct
         return options;
