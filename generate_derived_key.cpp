@@ -10,6 +10,7 @@
 #include <sstream>
 #include <string>
 #include "errors.h"
+#include "time_utils.h"
 #include "generate_key.h"
 #include "hexadecimal.h"
 #include "parameters_eddsa.h"
@@ -363,8 +364,8 @@ int main(int argc, const char **argv)
     }
 
     // convert the dates to a timestamp
-    std::time_t signature_creation_timestamp    = std::mktime(&*options.signature_creation);
-    std::time_t signature_expiration_timestamp  = std::mktime(&*options.signature_expiration);
+    std::time_t signature_creation_timestamp    = time_utils::tm_to_utc_unix_timestamp(*options.signature_creation);
+    std::time_t signature_expiration_timestamp  = time_utils::tm_to_utc_unix_timestamp(*options.signature_expiration);
 
     // create an error checker
     error_checker<0> checker;
