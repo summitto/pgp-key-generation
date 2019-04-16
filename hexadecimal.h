@@ -22,7 +22,7 @@ std::array<uint8_t, width> convert_string_to_numbers(const std::string &input)
     }
 
     // iterate over the entire string
-    for (int i = 0; i < width; ++i) {
+    for (size_t i = 0; i < width; ++i) {
         // the value to parse into
         int value;
 

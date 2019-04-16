@@ -63,6 +63,8 @@ int main(int argc, const char **argv)
         std::getline(std::cin, recovery_seed);
     }
 
+    static_assert(crypto_kdf_KEYBYTES == crypto_generichash_BYTES);
+
     // did we get a recovery seed?
     if (!recovery_seed.empty()) {
         // parse it into the master key
@@ -96,10 +98,9 @@ int main(int argc, const char **argv)
                 dice_numbers.push_back(roll);
             }
         }
-    
-      // hash dice numbers together with random key
-      crypto_generichash(master.data(), master.size(), reinterpret_cast<const unsigned char *>( dice_numbers.data() ), dice_numbers.size(), master.data(), master.size()); 
-      
+
+        // hash dice numbers together with random key
+        crypto_generichash(master.data(), master.size(), reinterpret_cast<const unsigned char *>( dice_numbers.data() ), dice_numbers.size(), master.data(), master.size());
     }
 
     // convert the dates to a timestamp
