@@ -5,7 +5,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 
 find_package(pgp-packet REQUIRED)
 find_package(Boost      REQUIRED)
-find_package(cryptopp   REQUIRED)
+find_package(CryptoPP   REQUIRED)
 
 set(sources-list
     assert_release.cpp
@@ -23,10 +23,10 @@ add_compile_options(-Wall -Wextra -g -O0)
 # Add pgp-packet
 target_link_libraries(generate_derived_key pgp-packet)
 
-# Add boost
+# Add Boost
 target_include_directories(generate_derived_key PUBLIC ${Boost_INCLUDE_DIRS})
 
-# Add cryptopp
+# Add CryptoPP
 target_include_directories(generate_derived_key PRIVATE ${CRYPTOPP_INCLUDE_DIRS})
 target_link_libraries(generate_derived_key ${CRYPTOPP_LIBRARIES})
 
