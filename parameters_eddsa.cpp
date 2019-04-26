@@ -4,12 +4,12 @@
 #include "errors.h"
 
 
-parameters::computed_keys<parameters::eddsa::public_key_size, parameters::eddsa::secret_key_size>
+parameters::computed_keys<parameters::eddsa::public_key_t, parameters::eddsa::secret_key_t>
 parameters::eddsa::compute_keys(
-    const std::array<uint8_t, secret_key_size> &main_key_derivation,
-    const std::array<uint8_t, secret_key_size> &signing_key_derivation,
-    const std::array<uint8_t, secret_key_size> &encryption_key_derivation,
-    const std::array<uint8_t, secret_key_size> &authentication_key_derivation
+    const std::array<uint8_t, derivation_size> &main_key_derivation,
+    const std::array<uint8_t, derivation_size> &signing_key_derivation,
+    const std::array<uint8_t, derivation_size> &encryption_key_derivation,
+    const std::array<uint8_t, derivation_size> &authentication_key_derivation
 )
 {
     // Assert statically that the sizes match up.
@@ -47,11 +47,11 @@ parameters::eddsa::compute_keys(
     crypto_sign_seed_keypair(authentication_key_public.data(),  authentication_key_secret.data(),   authentication_key_derivation.data());
 
     // Convert the encryption key to the right format.
-    checker = crypto_sign_ed25519_pk_to_curve25519(encryption_key_public.data(),    temp_key_public.data());
-    checker = crypto_sign_ed25519_sk_to_curve25519(encryption_key_secret.data(),    temp_key_secret.data());
+    checker << crypto_sign_ed25519_pk_to_curve25519(encryption_key_public.data(),    temp_key_public.data());
+    checker << crypto_sign_ed25519_sk_to_curve25519(encryption_key_secret.data(),    temp_key_secret.data());
 
     // Now we declare the return value structure so we can fill in the right values.
-    computed_keys<public_key_size, secret_key_size> result;
+    computed_keys<public_key_t, secret_key_t> result;
 
     // For the public keys, we need to add the public key tag in front.
     // For the private keys (except the encryption private key), we need to remove the public key
@@ -70,7 +70,7 @@ parameters::eddsa::compute_keys(
     return result;
 }
 
-pgp::packet parameters::eddsa::secret_key_packet(key_type type, uint32_t creation, const std::array<uint8_t, public_key_size> &public_key, const std::array<uint8_t, secret_key_size> &secret_key)
+pgp::packet parameters::eddsa::secret_key_packet(key_type type, uint32_t creation, const public_key_t &public_key, const secret_key_t &secret_key)
 {
     switch (type) {
         case key_type::main:

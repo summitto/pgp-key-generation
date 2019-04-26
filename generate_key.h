@@ -104,13 +104,13 @@ std::vector<pgp::packet> generate_key(const master_key &master, std::string user
     expiration -= creation;
 
     // derive the keys from the master
-    derived_key<params_t::secret_key_size> main_key_derivation             { master, 1, context };
-    derived_key<params_t::secret_key_size> signing_key_derivation          { master, 2, context };
-    derived_key<params_t::secret_key_size> encryption_key_derivation       { master, 3, context };
-    derived_key<params_t::secret_key_size> authentication_key_derivation   { master, 4, context };
+    derived_key<params_t::derivation_size> main_key_derivation             { master, 1, context };
+    derived_key<params_t::derivation_size> signing_key_derivation          { master, 2, context };
+    derived_key<params_t::derivation_size> encryption_key_derivation       { master, 3, context };
+    derived_key<params_t::derivation_size> authentication_key_derivation   { master, 4, context };
 
     // Compute the keys from the derivation data.
-    parameters::computed_keys<params_t::public_key_size, params_t::secret_key_size> keys{
+    const auto keys{
         params_t::compute_keys(
             main_key_derivation,
             signing_key_derivation,
@@ -147,8 +147,8 @@ std::vector<pgp::packet> generate_key(const master_key &master, std::string user
     // add the subkeys and their signatures
     auto add_subkey_with_signature = [&packets, &main_key, creation, signature, expiration](
         parameters::key_type type,
-        const std::array<uint8_t, params_t::public_key_size> &public_key,
-        const std::array<uint8_t, params_t::secret_key_size> &secret_key
+        const typename params_t::public_key_t &public_key,
+        const typename params_t::secret_key_t &secret_key
     ) {
         // add the packet for the subkey
         packets.push_back(params_t::secret_key_packet(type, creation, public_key, secret_key));

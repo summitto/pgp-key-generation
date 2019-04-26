@@ -10,7 +10,7 @@ template <int expected>
 struct error_checker
 {
     public:
-        error_checker &operator=(int result)
+        error_checker &operator<<(int result)
         {
             using namespace std::string_literals;
 
