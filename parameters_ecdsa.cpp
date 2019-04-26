@@ -25,8 +25,9 @@ namespace {
         secretKey.MakePublicKey(publicKey);
 
         const ECP::Point& publicKey_q = publicKey.GetPublicElement();
-        publicKey_q.x.Encode(output_key_public.data(), 32);
-        publicKey_q.y.Encode(output_key_public.data() + publicKey_q.x.MinEncodedSize(), 32);
+        output_key_public[0] = parameters::ecdsa::public_key_tag_byte;
+        publicKey_q.x.Encode(output_key_public.data() + 1, 32);
+        publicKey_q.y.Encode(output_key_public.data() + 33, 32);
     }
 }
 

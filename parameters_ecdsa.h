@@ -10,7 +10,7 @@ namespace parameters {
     public:
         // There is no easily found size const for defining key length in cryptopp
         // TODO: do better than magic constants
-        static constexpr const size_t public_key_size = 64;
+        static constexpr const size_t public_key_size = 65;
         static constexpr const size_t secret_key_size = 32;
 
         static constexpr const char public_key_tag_byte = 0x04;
