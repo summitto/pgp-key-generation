@@ -109,7 +109,7 @@ std::vector<pgp::packet> generate_key(const master_key &master, std::string user
     derived_key<params_t::secret_key_size> encryption_key_derivation       { master, 3, context };
     derived_key<params_t::secret_key_size> authentication_key_derivation   { master, 4, context };
 
-    // Compute the keys from the derivation data. Remember that we skip one byte to allow for the leading tag byte.
+    // Compute the keys from the derivation data.
     parameters::computed_keys<params_t::public_key_size, params_t::secret_key_size> keys{
         params_t::compute_keys(
             main_key_derivation,

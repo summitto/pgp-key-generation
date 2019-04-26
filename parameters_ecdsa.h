@@ -8,12 +8,12 @@ namespace parameters {
 
     class ecdsa {
     public:
+        static constexpr const std::array<uint8_t, 1> public_key_tag{0x04};
+
         // There is no easily found size const for defining key length in cryptopp
         // TODO: do better than magic constants
         static constexpr const size_t public_key_size = 65;
         static constexpr const size_t secret_key_size = 32;
-
-        static constexpr const char public_key_tag_byte = 0x04;
 
         static computed_keys<public_key_size, secret_key_size> compute_keys(
             const std::array<uint8_t, secret_key_size> &main_key_derivation,

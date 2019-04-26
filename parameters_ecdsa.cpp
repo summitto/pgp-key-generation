@@ -1,6 +1,6 @@
+#include <cryptopp/oids.h>
 #include "parameters_ecdsa.h"
 #include "assert_release.h"
-#include "identity_hash.h"
 #include "errors.h"
 
 
@@ -8,26 +8,29 @@ namespace {
     void generate_from_derivation(
         std::array<uint8_t, parameters::ecdsa::public_key_size> &output_key_public,
         std::array<uint8_t, parameters::ecdsa::secret_key_size> &output_key_secret,
-
         const std::array<uint8_t, parameters::ecdsa::secret_key_size> &key_derivation
     )
     {
-        ECDSA<ECP, IdentityHash<32>>::PrivateKey secretKey;
+        CryptoPP::ECDSA<CryptoPP::ECP, void>::PrivateKey secretKey;
         CryptoPP::Integer secretKey_x;
         secretKey_x.Decode(key_derivation.data(), key_derivation.size());
 
-        secretKey.Initialize(ASN1::secp256r1(), secretKey_x);
+        secretKey.Initialize(CryptoPP::ASN1::secp256r1(), secretKey_x);
 
-        const Integer& secretKey_exponent = secretKey.GetPrivateExponent();
+        const CryptoPP::Integer& secretKey_exponent = secretKey.GetPrivateExponent();
         secretKey_exponent.Encode(output_key_secret.data(), output_key_secret.size());
 
-        ECDSA<ECP, IdentityHash<32>>::PublicKey publicKey;
+        CryptoPP::ECDSA<CryptoPP::ECP, void>::PublicKey publicKey;
         secretKey.MakePublicKey(publicKey);
 
-        const ECP::Point& publicKey_q = publicKey.GetPublicElement();
-        output_key_public[0] = parameters::ecdsa::public_key_tag_byte;
-        publicKey_q.x.Encode(output_key_public.data() + 1, 32);
-        publicKey_q.y.Encode(output_key_public.data() + 33, 32);
+        const CryptoPP::ECP::Point& publicKey_q = publicKey.GetPublicElement();
+
+        // First the public key tag, then the two components of the public key
+        const auto &tag = parameters::ecdsa::public_key_tag;
+        constexpr const size_t integer_size = 32;
+        std::copy(tag.begin(), tag.end(), output_key_public.begin());
+        publicKey_q.x.Encode(output_key_public.data() + tag.size(), integer_size);
+        publicKey_q.y.Encode(output_key_public.data() + tag.size() + integer_size, integer_size);
     }
 }
 
@@ -58,10 +61,10 @@ pgp::packet parameters::ecdsa::secret_key_packet(key_type type, uint32_t creatio
                 mpark::in_place_type_t<pgp::secret_key::ecdsa_key_t>{},     // key type
                 std::forward_as_tuple(                                      // public arguments
                     pgp::curve_oid::ecdsa(),                                // curve to use
-                    pgp::multiprecision_integer{ std::move(public_key) }    // move in the public key point
+                    pgp::multiprecision_integer{ public_key }               // copy in the public key point
                 ),
                 std::forward_as_tuple(                                      // secret arguments
-                    pgp::multiprecision_integer{ std::move(secret_key) }    // move in the secret key point
+                    pgp::multiprecision_integer{ secret_key }               // copy in the secret key point
                 )
             };
 
@@ -74,10 +77,10 @@ pgp::packet parameters::ecdsa::secret_key_packet(key_type type, uint32_t creatio
                 mpark::in_place_type_t<pgp::secret_key::ecdsa_key_t>{},     // key type
                 std::forward_as_tuple(                                      // public arguments
                     pgp::curve_oid::ecdsa(),                                // curve to use
-                    pgp::multiprecision_integer{ std::move(public_key) }    // move in the public key point
+                    pgp::multiprecision_integer{ public_key }               // copy in the public key point
                 ),
                 std::forward_as_tuple(                                      // secret arguments
-                    pgp::multiprecision_integer{ std::move(secret_key) }    // move in the secret key point
+                    pgp::multiprecision_integer{ secret_key }               // copy in the secret key point
                 )
             };
 
@@ -89,17 +92,14 @@ pgp::packet parameters::ecdsa::secret_key_packet(key_type type, uint32_t creatio
                 mpark::in_place_type_t<pgp::secret_key::ecdh_key_t>{},      // key type
                 std::forward_as_tuple(                                      // public arguments
                     pgp::curve_oid::ecdsa(),                                // curve to use
-                    pgp::multiprecision_integer{ std::move(public_key) },   // move in the public key point
+                    pgp::multiprecision_integer{ public_key },              // copy in the public key point
                     pgp::hash_algorithm::sha256,                            // use sha256 as hashing algorithm
                     pgp::symmetric_key_algorithm::aes128                    // and aes128 as the symmetric key algorithm
                 ),
                 std::forward_as_tuple(                                      // secret arguments
-                    pgp::multiprecision_integer{ std::move(secret_key) }    // move in the secret key point
+                    pgp::multiprecision_integer{ secret_key }               // copy in the secret key point
                 )
             };
-
-        default:
-            throw std::logic_error("secret_key_packet called with invalid key_type");
     }
 }
 
@@ -113,7 +113,7 @@ pgp::packet parameters::ecdsa::user_id_signature_packet(const pgp::user_id &user
         pgp::signature_subpacket_set{{                                          // hashed subpackets
             pgp::signature_creation_time_subpacket  { signature_creation  },    // signature was created at
             pgp::key_expiration_time_subpacket      { signature_expiration },   // signature expires at
-            parameters::key_flags_for_type(key_type::main)                      // the privilieges for the main key
+            parameters::key_flags_for_type(key_type::main)                      // the privileges for the main key
         }},
         pgp::signature_subpacket_set{{                                          // unhashed subpackets
             pgp::issuer_subpacket{ main_key.fingerprint() }                     // fingerprint of the key we are signing with

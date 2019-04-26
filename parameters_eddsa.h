@@ -13,10 +13,10 @@ namespace parameters {
      */
     class eddsa {
     public:
-        static constexpr const size_t public_key_size = 1 + crypto_sign_PUBLICKEYBYTES;
-        static constexpr const size_t secret_key_size = crypto_sign_SECRETKEYBYTES - crypto_sign_PUBLICKEYBYTES;
+        static constexpr const std::array<uint8_t, 1> public_key_tag{0x40};
 
-        static constexpr const char public_key_tag_byte = 0x40;
+        static constexpr const size_t public_key_size = public_key_tag.size() + crypto_sign_PUBLICKEYBYTES;
+        static constexpr const size_t secret_key_size = crypto_sign_SECRETKEYBYTES - crypto_sign_PUBLICKEYBYTES;
 
         static computed_keys<public_key_size, secret_key_size> compute_keys(
             const std::array<uint8_t, secret_key_size> &main_key_derivation,

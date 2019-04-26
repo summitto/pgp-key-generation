@@ -1,3 +1,5 @@
+# Originally from: https://gist.github.com/colejhudson/bd4f91efb453c50483152918e3337745
+
 # Module for locating the Crypto++ encryption library.
 #
 # Customizable variables:

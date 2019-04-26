@@ -4,7 +4,6 @@
 #include "errors.h"
 
 
-
 parameters::computed_keys<parameters::eddsa::public_key_size, parameters::eddsa::secret_key_size>
 parameters::eddsa::compute_keys(
     const std::array<uint8_t, secret_key_size> &main_key_derivation,
@@ -15,10 +14,10 @@ parameters::eddsa::compute_keys(
 {
     // Assert statically that the sizes match up.
     // These should match for the encryption key.
-    static_assert(crypto_scalarmult_curve25519_BYTES + 1 == public_key_size);
+    static_assert(crypto_scalarmult_curve25519_BYTES + parameters::eddsa::public_key_tag.size() == public_key_size);
     static_assert(crypto_scalarmult_curve25519_BYTES == secret_key_size);
-    // A public key gets an extra tag byte.
-    static_assert(crypto_sign_PUBLICKEYBYTES + 1 == public_key_size);
+    // A public key gets an extra tag in front.
+    static_assert(crypto_sign_PUBLICKEYBYTES + parameters::eddsa::public_key_tag.size() == public_key_size);
     // Secret keys get their public parts stripped.
     static_assert(crypto_sign_SECRETKEYBYTES - crypto_sign_PUBLICKEYBYTES == secret_key_size);
 
@@ -54,19 +53,19 @@ parameters::eddsa::compute_keys(
     // Now we declare the return value structure so we can fill in the right values.
     computed_keys<public_key_size, secret_key_size> result;
 
-    // For the public keys, we need to add the tag byte in front.
+    // For the public keys, we need to add the public key tag in front.
     // For the private keys (except the encryption private key), we need to remove the public key
     // part because PGP doesn't want to have it there; the encryption private key doesn't contain
     // that in the first place, but needs to be reversed instead because PGP uses it in
     // little-endian format.
-    result.main_key_public           = util::array_append(std::array<uint8_t, 1>{public_key_tag_byte}, main_key_public);
-    result.signing_key_public        = util::array_append(std::array<uint8_t, 1>{public_key_tag_byte}, signing_key_public);
-    result.encryption_key_public     = util::array_append(std::array<uint8_t, 1>{public_key_tag_byte}, encryption_key_public);
-    result.authentication_key_public = util::array_append(std::array<uint8_t, 1>{public_key_tag_byte}, authentication_key_public);
-    result.main_key_secret           = util::array_resized<secret_key_size>(main_key_secret);
-    result.signing_key_secret        = util::array_resized<secret_key_size>(signing_key_secret);
-    result.authentication_key_secret = util::array_resized<secret_key_size>(authentication_key_secret);
-    result.encryption_key_secret     = util::array_reversed(encryption_key_secret);
+    result.main_key_public           = util::array::concatenated(public_key_tag, main_key_public);
+    result.signing_key_public        = util::array::concatenated(public_key_tag, signing_key_public);
+    result.encryption_key_public     = util::array::concatenated(public_key_tag, encryption_key_public);
+    result.authentication_key_public = util::array::concatenated(public_key_tag, authentication_key_public);
+    result.main_key_secret           = util::array::truncated<secret_key_size>(main_key_secret);
+    result.signing_key_secret        = util::array::truncated<secret_key_size>(signing_key_secret);
+    result.authentication_key_secret = util::array::truncated<secret_key_size>(authentication_key_secret);
+    result.encryption_key_secret     = util::array::reversed(encryption_key_secret);
 
     return result;
 }
@@ -82,10 +81,10 @@ pgp::packet parameters::eddsa::secret_key_packet(key_type type, uint32_t creatio
                 mpark::in_place_type_t<pgp::secret_key::eddsa_key_t>{},     // key type
                 std::forward_as_tuple(                                      // public arguments
                     pgp::curve_oid::ed25519(),                              // curve to use
-                    pgp::multiprecision_integer{ std::move(public_key) }    // move in the public key point
+                    pgp::multiprecision_integer{ public_key }               // copy in the public key point
                 ),
                 std::forward_as_tuple(                                      // secret arguments
-                    pgp::multiprecision_integer{ std::move(secret_key) }    // move in the secret key point
+                    pgp::multiprecision_integer{ secret_key }               // copy in the secret key point
                 )
             };
 
@@ -98,10 +97,10 @@ pgp::packet parameters::eddsa::secret_key_packet(key_type type, uint32_t creatio
                 mpark::in_place_type_t<pgp::secret_key::eddsa_key_t>{},     // key type
                 std::forward_as_tuple(                                      // public arguments
                     pgp::curve_oid::ed25519(),                              // curve to use
-                    pgp::multiprecision_integer{ std::move(public_key) }    // move in the public key point
+                    pgp::multiprecision_integer{ public_key }               // copy in the public key point
                 ),
                 std::forward_as_tuple(                                      // secret arguments
-                    pgp::multiprecision_integer{ std::move(secret_key) }    // move in the secret key point
+                    pgp::multiprecision_integer{ secret_key }               // copy in the secret key point
                 )
             };
 
@@ -113,17 +112,14 @@ pgp::packet parameters::eddsa::secret_key_packet(key_type type, uint32_t creatio
                 mpark::in_place_type_t<pgp::secret_key::ecdh_key_t>{},       // key type
                 std::forward_as_tuple(                                       // public arguments
                     pgp::curve_oid::curve_25519(),                           // curve to use
-                    pgp::multiprecision_integer{ std::move(public_key) },    // move in the public key point
+                    pgp::multiprecision_integer{ public_key },               // copy in the public key point
                     pgp::hash_algorithm::sha256,                             // use sha256 as hashing algorithm
                     pgp::symmetric_key_algorithm::aes128                     // and aes128 as the symmetric key algorithm
                 ),
                 std::forward_as_tuple(                                       // secret arguments
-                    pgp::multiprecision_integer{ std::move(secret_key) }     // move in the secret key point
+                    pgp::multiprecision_integer{ secret_key }                // copy in the secret key point
                 )
             };
-
-        default:
-            throw std::logic_error("secret_key_packet called with invalid key_type");
     }
 }
 
@@ -137,7 +133,7 @@ pgp::packet parameters::eddsa::user_id_signature_packet(const pgp::user_id &user
         pgp::signature_subpacket_set{{                                          // hashed subpackets
             pgp::signature_creation_time_subpacket  { signature_creation  },    // signature was created at
             pgp::key_expiration_time_subpacket      { signature_expiration },   // signature expires at
-            parameters::key_flags_for_type(key_type::main)                      // the privilieges for the main key
+            parameters::key_flags_for_type(key_type::main)                      // the privileges for the main key
         }},
         pgp::signature_subpacket_set{{                                          // unhashed subpackets
             pgp::issuer_subpacket{ main_key.fingerprint() }                     // fingerprint of the key we are signing with
