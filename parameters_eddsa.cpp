@@ -127,7 +127,6 @@ pgp::packet parameters::eddsa::user_id_signature_packet(const pgp::user_id &user
 {
     return pgp::packet{
         mpark::in_place_type_t<pgp::signature>{},                               // we are making a signature
-        mpark::in_place_type_t<pgp::eddsa_signature>{},                         // of the eddsa kind
         main_key,                                                               // we sign with the main key
         user_id,                                                                // for this user
         pgp::signature_subpacket_set{{                                          // hashed subpackets
@@ -150,7 +149,6 @@ pgp::packet parameters::eddsa::subkey_signature_packet(key_type type, const pgp:
 
     return pgp::packet{
         mpark::in_place_type_t<pgp::signature>{},                               // subkey signature
-        mpark::in_place_type_t<pgp::eddsa_signature>{},                         // using eddsa signature generation
         main_key,                                                               // we sign with the main key
         subkey,                                                                 // indicating we own this subkey
         pgp::signature_subpacket_set{{                                          // hashed subpackets
