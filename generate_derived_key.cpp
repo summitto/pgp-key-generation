@@ -7,6 +7,8 @@
 #include "errors.h"
 #include "generate_key.h"
 #include "hexadecimal.h"
+#include "parameters_eddsa.h"
+#include "parameters_ecdsa.h"
 
 /**
  *  Main function
@@ -114,7 +116,7 @@ int main(int argc, const char **argv)
     checker = sodium_init();
 
     // generate the packets
-    auto packets = generate_key(master, std::move(user_id), key_creation_timestamp, signature_creation_timestamp, signature_expiration_timestamp, kdf_context);
+    auto packets = generate_key<parameters::eddsa>(master, std::move(user_id), key_creation_timestamp, signature_creation_timestamp, signature_expiration_timestamp, kdf_context);
 
     // determine output size, create a vector for it and provide it to the encoder
     size_t                  data_size   ( std::accumulate(packets.begin(), packets.end(), 0, [](size_t a, auto &&b) -> size_t { return a + b.size(); }) );
