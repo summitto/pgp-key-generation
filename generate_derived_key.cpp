@@ -34,7 +34,6 @@ namespace {
             case key_class::eddsa:   return "EDDSA";
             case key_class::ecdsa:   return "ECDSA";
         }
-        return "Unknown key type";
     }
 
     /**
