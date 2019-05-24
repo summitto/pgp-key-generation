@@ -1,4 +1,5 @@
 #include <boost/program_options.hpp>
+#include <boost/smart_ptr/make_shared.hpp>
 #include <boost/utility/string_view.hpp>
 #include <pgp-packet/range_encoder.h>
 #include <pgp-packet/packet.h>
@@ -6,6 +7,7 @@
 #include <sodium.h>
 #include <iomanip>
 #include <fstream>
+#include <sstream>
 #include <string>
 #include "errors.h"
 #include "generate_key.h"
@@ -14,6 +16,43 @@
 #include "parameters_ecdsa.h"
 
 namespace {
+
+    /**
+     *  Utility function for reading a value from a stream, ensuring that a whole line is read
+     *
+     *  @param  stream     The stream to read from
+     *  @param  parser     Parser for the value from a stream
+     */
+    template <typename F,
+              typename = std::enable_if_t<std::is_invocable_v<F, std::istringstream&>>>
+    void read_whole_line(std::istream &stream, F parser)
+    {
+        // read a line from the stream
+        std::string line;
+        std::getline(stream, line);
+
+        // read and parse the value
+        std::istringstream ss{line};
+        parser(ss);
+
+        // check whether the parse succeeded
+        if (!ss) {
+            // the parse failed, so report it and exit
+            std::cout << "Could not parse the string '" << line << "'" << std::endl;
+            exit(0);
+        }
+
+        // discard trailing whitespace
+        ss >> std::ws;
+
+        // check whether there is still content in the line
+        if (!ss.eof()) {
+            // not the whole line was consumed, so report it and exit
+            std::cout << "Could not parse the string '" << line << "': unused trailing characters" << std::endl;
+            exit(0);
+        }
+    }
+
     /**
      *  Which type of key should be generated?
      */
@@ -21,6 +60,32 @@ namespace {
         eddsa,
         ecdsa,
     };
+
+    /**
+     *  Reading a key_class from a stream parses the value
+     */
+    std::istream &operator>>(std::istream &stream, key_class &cl)
+    {
+        // read the value
+        read_whole_line(stream, [&cl](std::istream &s) {
+            // read a word from the stream
+            std::string word;
+            s >> word;
+
+            // attempt to parse the word
+            if (word == "eddsa") {
+                cl = key_class::eddsa;
+            } else if (word == "ecdsa") {
+                cl = key_class::ecdsa;
+            } else {
+                // no parse, set the fail bit
+                s.setstate(std::ios_base::failbit);
+            }
+        });
+
+        // return the stream for chaining
+        return stream;
+    }
 
     /**
      *  Get a description of the key class
@@ -37,85 +102,178 @@ namespace {
     }
 
     /**
+     *  Wrapper around std::optional for reading from standard input with a prompt
+     *
+     *  If the type T is constructible with an std::string, it will be
+     *  constructed with a full line read from the input stream. Otherwise, the
+     *  value will be read directly from the stream using operator>>, and it
+     *  will be checked that it consumed the entire line.
+     */
+    template <typename T>
+    class opt_prompt : public std::optional<T> {
+    public:
+        // inherit the constructors
+        using std::optional<T>::optional;
+
+        /**
+         *  Read the value from standard input if there was none yet
+         *
+         *  @param  prompt     The prompt string to use when reading from stdin
+         */
+        void ensure_prompt(boost::string_view prompt)
+        {
+            // if we have a value already, nothing to do
+            if (this->has_value()) {
+                return;
+            }
+
+            // otherwise, prompt and read a value from input
+            std::cout << prompt << ": ";
+            std::cin >> *this;
+        }
+    };
+
+    /**
+     *  Reading an opt_prompt from a stream reads a line from the stream, then
+     *  parses the value from that line
+     */
+    template <typename T>
+    std::istream &operator>>(std::istream &stream, opt_prompt<T> &opt)
+    {
+        // read the value
+        read_whole_line(stream, [&opt](std::istream &stream) {
+            // if we can initialize the value with a string immediately, do so
+            if constexpr (std::is_constructible_v<T, const std::string &>) {
+                // read a line from the stream
+                std::string line;
+                std::getline(stream, line);
+
+                // initialize the value from that line
+                opt.emplace(line);
+            } else {
+                // read the value
+                T value;
+                stream >> value;
+
+                // if the parse succeeded, assign the value
+                if (stream) {
+                    opt = std::move(value);
+                }
+            }
+        });
+
+        // return the stream for chaining
+        return stream;
+    }
+
+    /**
+     *  A wrapper around an std::tm which enables reading it from standard input
+     */
+    class tm_wrapper : public std::tm {
+    public:
+        // inherit the constructors
+        using std::tm::tm;
+    };
+
+    /**
+     *  Parse an std::tm from a stream
+     */
+    std::istream &operator>>(std::istream &stream, tm_wrapper &tm)
+    {
+        // read the value
+        read_whole_line(stream, [&tm](std::istream &s) {
+            s >> std::get_time(&tm, "%Y-%m-%d %H:%M:%S");
+        });
+
+        // return the stream for chaining
+        return stream;
+    }
+
+    /**
      *  The parsed program options.
      */
     struct Options {
-        std::string output_file;
-        key_class type = key_class::eddsa;
+        // the key output file
+        opt_prompt<std::string> output_file;
+
+        // the type of the key
+        opt_prompt<key_class>   type;
+
+        // the user id
+        opt_prompt<std::string> user_name;
+        opt_prompt<std::string> user_email;
+
+        // the start and end of signature validity
+        opt_prompt<tm_wrapper>  signature_creation;
+        opt_prompt<tm_wrapper>  signature_expiration;
     };
 
     /**
      *  Parse options from the program command-line arguments.
      *
-     *  @param  argc    The 'argc' parameter to main();
-     *  @param  argv    The 'argv' parameter to main();
+     *  @param  argc    The 'argc' parameter to main()
+     *  @param  argv    The 'argv' parameter to main()
      */
-    Options parse_options(int argc, const char **argv) {
+    Options parse_options(int argc, const char **argv)
+    {
         namespace po = boost::program_options;
 
-        po::options_description hidden("Hidden options");
-        hidden.add_options()
-            ("output-file,o", po::value<std::string>(), "output file");
+        // the options structure that we will configure here
+        Options options;
 
-        po::options_description generic("Generic options");
-        generic.add_options()
-            ("help,h", "produce help message")
-            ("key-type,t", po::value<std::string>(), "type of the generated key (eddsa/ecdsa)");
+        // description of the options for the boost option parser
+        po::options_description optdesc;
+        optdesc.add_options()
+            ("help,h",                                                                           "Produce help message")
+            ("output-file,o", po::value<opt_prompt<std::string>>(&options.output_file),          "Output file")
+            ("key-type,t",    po::value<opt_prompt<key_class>>  (&options.type),                 "Type of the generated key (eddsa/ecdsa)")
+            ("name,n",        po::value<opt_prompt<std::string>>(&options.user_name),            "Your name (firstname lastname)")
+            ("email,e",       po::value<opt_prompt<std::string>>(&options.user_email),           "Your email address")
+            ("sigtime,s",     po::value<opt_prompt<tm_wrapper>> (&options.signature_creation),   "Signature creation time (YYYY-MM-DD HH:MM:SS)")
+            ("sigexpiry,x",   po::value<opt_prompt<tm_wrapper>> (&options.signature_expiration), "Signature expiration time (YYYY-MM-DD HH:MM:SS)");
 
-        po::positional_options_description pos_desc;
-        pos_desc.add("output-file", 1);
-
-        // hide the positional options from the --help view
-        po::options_description visible;
-        visible.add(generic);
-
-        po::options_description all_opts;
-        all_opts.add(visible).add(hidden);
-
+        // run the option parser
         po::variables_map vm;
         po::store(
-            po::command_line_parser(argc, argv)
-                .options(all_opts).positional(pos_desc).run(),
+            po::command_line_parser(argc, argv).options(optdesc).run(),
             vm
         );
         po::notify(vm);
 
+        // check for the help flag
         if (vm.count("help")) {
-            std::cout << "Usage: " << argv[0] << " [options] <output-file>" << std::endl;
+            // output generic info
+            std::cout << "Usage: " << argv[0] << " [options]" << std::endl;
             std::cout << std::endl;
             std::cout << "This program will deterministically generate a PGP key based on user-provided entropy." << std::endl;
-            std::cout << "The program will prompt for the required input on standard input." << std::endl;
+            std::cout << "The program will prompt for certain required input, after prompting to obtain information from" << std::endl;
+            std::cout << "command-line options." << std::endl;
             std::cout << std::endl;
             std::cout << "Note that the generated signatures may not be deterministic, since making cryptographic signatures" << std::endl;
             std::cout << "is in general a non-deterministic process. The key, however, is deterministic." << std::endl;
             std::cout << std::endl;
             std::cout << "This program is a work-in-progress, and is not adequately documented yet. Proceed with caution." << std::endl;
-            std::cout << visible << std::endl;
+            std::cout << std::endl;
+
+            // output the generated help text for the options
+            std::cout << optdesc << std::endl;
+
+            // exit, since the user just requested help
             exit(0);
         }
 
-        Options options;
-        if (vm.count("output-file")) {
-            options.output_file = vm["output-file"].as<std::string>();
-        } else {
-            std::cerr << "The output-file argument is required." << std::endl;
-            exit(1);
-        }
+        // ensure that all the options are initialized by possibly reading some from standard input
+        options.output_file         .ensure_prompt("Output file");
+        options.type                .ensure_prompt("Type of the generated key (eddsa/ecdsa)");
+        options.user_name           .ensure_prompt("Your name (firstname lastname)");
+        options.user_email          .ensure_prompt("Your email address");
+        options.signature_creation  .ensure_prompt("Signature creation time (YYYY-MM-DD HH:MM:SS)");
+        options.signature_expiration.ensure_prompt("Signature expiration time (YYYY-MM-DD HH:MM:SS)");;
 
-        if (vm.count("key-type")) {
-            const std::string &value = vm["key-type"].as<std::string>();
-            if (value == "eddsa") {
-                options.type = key_class::eddsa;
-            } else if (value == "ecdsa") {
-                options.type = key_class::ecdsa;
-            } else {
-                std::cerr << "Unrecognised key type '" << value << "'." << std::endl;
-                exit(1);
-            }
-        }
-
+        // return the created options struct
         return options;
     }
+
 }
 
 /**
@@ -130,8 +288,8 @@ int main(int argc, const char **argv)
     Options options = parse_options(argc, argv);
 
     // inform the user about the settings in the command-line arguments
-    std::cout << "Using key type " << key_class_description(options.type) << std::endl;
-    std::cout << "Writing key to file '" << options.output_file << "'" << std::endl;
+    std::cout << "Using key type " << key_class_description(*options.type) << std::endl;
+    std::cout << "Writing key to file '" << *options.output_file << "'" << std::endl;
 
     // the kdf context and the time at which all keys are created
     constexpr const auto kdf_context            = "summitto";
@@ -140,33 +298,11 @@ int main(int argc, const char **argv)
     // the master key for generation
     master_key  master;
 
-    // the user id, start and end of the signature validity
-    std::string user_name;
-    std::string user_email;
-    std::tm     signature_creation;
-    std::tm     signature_expiration;
-
-    // read the user name to creat the key for
-    std::cout << "Your name (firstname lastname): ";
-    std::getline(std::cin, user_name);
-    std::cout << "Your email address: ";
-    std::getline(std::cin, user_email);
-
     // concatenate to a valid address
-    std::string user_id = user_name + " <" + user_email + ">";
-
-    // read the start and end date
-    std::cout << "Signature creation time (YYYY-MM-DD HH:MM:SS): ";
-    std::cin >> std::get_time(&signature_creation, "%Y-%m-%d %H:%M:%S");
-    std::cout << "Signature expiry time (YYYY-MM-DD HH:MM:SS):   ";
-    std::cin >> std::get_time(&signature_expiration, "%Y-%m-%d %H:%M:%S");
+    std::string user_id = *options.user_name + " <" + *options.user_email + ">";
 
     // read the recovery seed
-    std::string recovery_seed;
-    std::getline(std::cin, recovery_seed);
-    recovery_seed.assign("invalid");
-
-    // keep trying to read the seed
+    std::string recovery_seed{"invalid"};
     while (!recovery_seed.empty() && recovery_seed.size() != crypto_kdf_KEYBYTES * 2) {
         // don't have a valid recovery seed yet
         std::cout << "Enter recovery seed, or press enter to generate a new key: ";
@@ -214,8 +350,8 @@ int main(int argc, const char **argv)
     }
 
     // convert the dates to a timestamp
-    std::time_t signature_creation_timestamp    = std::mktime(&signature_creation);
-    std::time_t signature_expiration_timestamp  = std::mktime(&signature_expiration);
+    std::time_t signature_creation_timestamp    = std::mktime(&*options.signature_creation);
+    std::time_t signature_expiration_timestamp  = std::mktime(&*options.signature_expiration);
 
     // create an error checker
     error_checker<0> checker;
@@ -225,7 +361,7 @@ int main(int argc, const char **argv)
 
     // select the function with which to generate the packets
     std::function<std::vector<pgp::packet>(const master_key&, std::string, uint32_t, uint32_t, uint32_t, boost::string_view)> generation_function;
-    switch (options.type) {
+    switch (*options.type) {
         case key_class::eddsa: generation_function = generate_key<parameters::eddsa>; break;
         case key_class::ecdsa: generation_function = generate_key<parameters::ecdsa>; break;
     }
@@ -244,7 +380,7 @@ int main(int argc, const char **argv)
     }
 
     // write it to the requested file
-    std::ofstream{ options.output_file }.write(reinterpret_cast<const char*>(out_data.data()), encoder.size());
+    std::ofstream{ *options.output_file }.write(reinterpret_cast<const char*>(out_data.data()), encoder.size());
 
     // if we don't have a seed, we created a new key, so we must show the seed output
     if (recovery_seed.empty()) {
