@@ -20,9 +20,14 @@ namespace {
         output_key_public.n = private_key.GetModulus();
         output_key_public.e = private_key.GetPublicExponent();
 
+        // Note that the primes, p and q, are swapped below; this is because of
+        // an incompatibility between Crypto++ and PGP. The PGP format defines
+        // u as p^-1 mod q, while Crypto++ defines it as q^-1 mod p. Therefore,
+        // if we just swap p and q around, the definitions for u agree, and
+        // everyone is happy.
         output_key_secret.d = private_key.GetPrivateExponent();
-        output_key_secret.p = private_key.GetPrime1();
-        output_key_secret.q = private_key.GetPrime2();
+        output_key_secret.p = private_key.GetPrime2();
+        output_key_secret.q = private_key.GetPrime1();
         output_key_secret.u = private_key.GetMultiplicativeInverseOfPrime2ModPrime1();
     }
 }
