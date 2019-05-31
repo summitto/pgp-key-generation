@@ -123,7 +123,7 @@ namespace {
         void ensure_prompt(boost::string_view prompt) noexcept
         {
             // if we have a value already, nothing to do
-            if (this->has_value()) {
+            if (std::optional<T>::has_value()) {
                 return;
             }
 
