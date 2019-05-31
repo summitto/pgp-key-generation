@@ -196,6 +196,8 @@ namespace {
     {
         // read the value
         read_whole_line(stream, [&tm](std::istream &s) noexcept {
+            // explicitly construct an instance to zero-initialize the structure
+            tm = tm_wrapper{};
             s >> std::get_time(&tm, "%Y-%m-%d %H:%M:%S");
         });
 
