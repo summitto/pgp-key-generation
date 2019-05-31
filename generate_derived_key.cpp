@@ -24,8 +24,8 @@ namespace {
      *  @param  parser     Parser for the value from a stream
      */
     template <typename F,
-              typename = std::enable_if_t<std::is_invocable_v<F, std::istringstream&>>>
-    void read_whole_line(std::istream &stream, F parser)
+              typename = std::enable_if_t<std::is_nothrow_invocable_v<F, std::istringstream&>>>
+    void read_whole_line(std::istream &stream, F parser) noexcept
     {
         // read a line from the stream
         std::string line;
@@ -64,10 +64,10 @@ namespace {
     /**
      *  Reading a key_class from a stream parses the value
      */
-    std::istream &operator>>(std::istream &stream, key_class &cl)
+    std::istream &operator>>(std::istream &stream, key_class &cl) noexcept
     {
         // read the value
-        read_whole_line(stream, [&cl](std::istream &s) {
+        read_whole_line(stream, [&cl](std::istream &s) noexcept {
             // read a word from the stream
             std::string word;
             s >> word;
@@ -120,7 +120,7 @@ namespace {
          *
          *  @param  prompt     The prompt string to use when reading from stdin
          */
-        void ensure_prompt(boost::string_view prompt)
+        void ensure_prompt(boost::string_view prompt) noexcept
         {
             // if we have a value already, nothing to do
             if (this->has_value()) {
@@ -138,10 +138,10 @@ namespace {
      *  parses the value from that line
      */
     template <typename T>
-    std::istream &operator>>(std::istream &stream, opt_prompt<T> &opt)
+    std::istream &operator>>(std::istream &stream, opt_prompt<T> &opt) noexcept
     {
         // read the value
-        read_whole_line(stream, [&opt](std::istream &stream) {
+        read_whole_line(stream, [&opt](std::istream &stream) noexcept {
             // if we can initialize the value with a string immediately, do so
             if constexpr (std::is_constructible_v<T, const std::string &>) {
                 // read a line from the stream
@@ -178,10 +178,10 @@ namespace {
     /**
      *  Parse an std::tm from a stream
      */
-    std::istream &operator>>(std::istream &stream, tm_wrapper &tm)
+    std::istream &operator>>(std::istream &stream, tm_wrapper &tm) noexcept
     {
         // read the value
-        read_whole_line(stream, [&tm](std::istream &s) {
+        read_whole_line(stream, [&tm](std::istream &s) noexcept {
             s >> std::get_time(&tm, "%Y-%m-%d %H:%M:%S");
         });
 
@@ -235,7 +235,7 @@ namespace {
         // run the option parser
         po::variables_map vm;
         po::store(
-            po::command_line_parser(argc, argv).options(optdesc).run(),
+            po::command_line_parser{argc, argv}.options(optdesc).run(),
             vm
         );
         po::notify(vm);
