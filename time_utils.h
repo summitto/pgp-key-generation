@@ -35,6 +35,8 @@ namespace time_utils {
      *  This depends on whether the year is a leap year. Note that the month is
      *  1-based.
      *
+     *  Please note: If the month is out of range, this is undefined behavior.
+     *
      *  @pre 1 <= month <= 12
      *  @param year      The year in which this month falls.
      *  @param month     The month of which the number of days is requested;
@@ -76,6 +78,8 @@ namespace time_utils {
      *  and in 2001 these have 31 and 28 days, respectively.
      *
      *  This function runs in constant time.
+     *
+     *  Please note: If the month is out of range, this is undefined behavior.
      *
      *  @pre 1 <= month <= 12
      *  @param year      The year in which this month falls.
