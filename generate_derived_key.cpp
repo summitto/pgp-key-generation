@@ -10,6 +10,7 @@
 #include <sstream>
 #include <string>
 #include "errors.h"
+#include "time_utils.h"
 #include "generate_key.h"
 #include "hexadecimal.h"
 #include "parameters_eddsa.h"
@@ -195,6 +196,8 @@ namespace {
     {
         // read the value
         read_whole_line(stream, [&tm](std::istream &s) noexcept {
+            // explicitly construct an instance to zero-initialize the structure
+            tm = tm_wrapper{};
             s >> std::get_time(&tm, "%Y-%m-%d %H:%M:%S");
         });
 
@@ -242,8 +245,8 @@ namespace {
             ("key-type,t",    po::value<opt_prompt<key_class>>  (&options.type),                 "Type of the generated key (eddsa/ecdsa)")
             ("name,n",        po::value<opt_prompt<std::string>>(&options.user_name),            "Your name (firstname lastname)")
             ("email,e",       po::value<opt_prompt<std::string>>(&options.user_email),           "Your email address")
-            ("sigtime,s",     po::value<opt_prompt<tm_wrapper>> (&options.signature_creation),   "Signature creation time (YYYY-MM-DD HH:MM:SS)")
-            ("sigexpiry,x",   po::value<opt_prompt<tm_wrapper>> (&options.signature_expiration), "Signature expiration time (YYYY-MM-DD HH:MM:SS)");
+            ("sigtime,s",     po::value<opt_prompt<tm_wrapper>> (&options.signature_creation),   "Signature creation time in UTC (YYYY-MM-DD HH:MM:SS)")
+            ("sigexpiry,x",   po::value<opt_prompt<tm_wrapper>> (&options.signature_expiration), "Signature expiration time in UTC (YYYY-MM-DD HH:MM:SS)");
 
         // run the option parser
         po::variables_map vm;
@@ -280,8 +283,8 @@ namespace {
         options.type                .ensure_prompt("Type of the generated key (eddsa/ecdsa)");
         options.user_name           .ensure_prompt("Your name (firstname lastname)");
         options.user_email          .ensure_prompt("Your email address");
-        options.signature_creation  .ensure_prompt("Signature creation time (YYYY-MM-DD HH:MM:SS)");
-        options.signature_expiration.ensure_prompt("Signature expiration time (YYYY-MM-DD HH:MM:SS)");;
+        options.signature_creation  .ensure_prompt("Signature creation time in UTC (YYYY-MM-DD HH:MM:SS)");
+        options.signature_expiration.ensure_prompt("Signature expiration time in UTC (YYYY-MM-DD HH:MM:SS)");;
 
         // return the created options struct
         return options;
@@ -363,8 +366,8 @@ int main(int argc, const char **argv)
     }
 
     // convert the dates to a timestamp
-    std::time_t signature_creation_timestamp    = std::mktime(&*options.signature_creation);
-    std::time_t signature_expiration_timestamp  = std::mktime(&*options.signature_expiration);
+    std::time_t signature_creation_timestamp    = time_utils::tm_to_utc_unix_timestamp(*options.signature_creation);
+    std::time_t signature_expiration_timestamp  = time_utils::tm_to_utc_unix_timestamp(*options.signature_expiration);
 
     // create an error checker
     error_checker<0> checker;

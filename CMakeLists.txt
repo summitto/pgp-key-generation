@@ -15,6 +15,7 @@ set(sources-list
     parameters.cpp
     parameters_ecdsa.cpp
     parameters_eddsa.cpp
+    time_utils.cpp
     parameters_rsa.cpp
 )
 
