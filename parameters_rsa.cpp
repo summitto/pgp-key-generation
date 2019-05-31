@@ -1,41 +1,41 @@
-#include <cryptopp/oids.h>
-#include "parameters_ecdsa.h"
+#include <cryptopp/rsa.h>
+#include "parameters_rsa.h"
 #include "assert_release.h"
 #include "errors.h"
 
 
 namespace {
+    template <size_t modulus_size>
     void generate_from_derivation(
-        parameters::ecdsa::public_key_t &output_key_public,
-        parameters::ecdsa::secret_key_t &output_key_secret,
-        const std::array<uint8_t, parameters::ecdsa::secret_key_size> &key_derivation
+        typename parameters::rsa<modulus_size>::public_key_t &output_key_public,
+        typename parameters::rsa<modulus_size>::secret_key_t &output_key_secret,
+        const std::array<uint8_t, parameters::rsa<modulus_size>::derivation_size> &key_derivation
     )
     {
-        CryptoPP::ECDSA<CryptoPP::ECP, void>::PrivateKey secretKey;
-        CryptoPP::Integer secretKey_x;
-        secretKey_x.Decode(key_derivation.data(), key_derivation.size());
+        deterministic_rng prng{key_derivation};
 
-        secretKey.Initialize(CryptoPP::ASN1::secp256r1(), secretKey_x);
+        CryptoPP::RSA::PrivateKey private_key;
+        private_key.GenerateRandomWithKeySize(prng, modulus_size);
 
-        const CryptoPP::Integer& secretKey_exponent = secretKey.GetPrivateExponent();
-        secretKey_exponent.Encode(output_key_secret.data(), output_key_secret.size());
+        output_key_public.n = private_key.GetModulus();
+        output_key_public.e = private_key.GetPublicExponent();
 
-        CryptoPP::ECDSA<CryptoPP::ECP, void>::PublicKey publicKey;
-        secretKey.MakePublicKey(publicKey);
-
-        const CryptoPP::ECP::Point& publicKey_q = publicKey.GetPublicElement();
-
-        // First the public key tag, then the two components of the public key
-        const auto &tag = parameters::ecdsa::public_key_tag;
-        constexpr const size_t integer_size = 32;
-        std::copy(tag.begin(), tag.end(), output_key_public.begin());
-        publicKey_q.x.Encode(output_key_public.data() + tag.size(), integer_size);
-        publicKey_q.y.Encode(output_key_public.data() + tag.size() + integer_size, integer_size);
+        // Note that the primes, p and q, are swapped below; this is because of
+        // an incompatibility between Crypto++ and PGP. The PGP format defines
+        // u as p^-1 mod q, while Crypto++ defines it as q^-1 mod p. Therefore,
+        // if we just swap p and q around, the definitions for u agree, and
+        // everyone is happy.
+        output_key_secret.d = private_key.GetPrivateExponent();
+        output_key_secret.p = private_key.GetPrime2();
+        output_key_secret.q = private_key.GetPrime1();
+        output_key_secret.u = private_key.GetMultiplicativeInverseOfPrime2ModPrime1();
     }
 }
 
-parameters::computed_keys<parameters::ecdsa::public_key_t, parameters::ecdsa::secret_key_t>
-parameters::ecdsa::compute_keys(
+
+template <size_t modulus_size>
+parameters::computed_keys<typename parameters::rsa<modulus_size>::public_key_t, typename parameters::rsa<modulus_size>::secret_key_t>
+parameters::rsa<modulus_size>::compute_keys(
     const std::array<uint8_t, derivation_size> &main_key_derivation,
     const std::array<uint8_t, derivation_size> &signing_key_derivation,
     const std::array<uint8_t, derivation_size> &encryption_key_derivation,
@@ -43,28 +43,28 @@ parameters::ecdsa::compute_keys(
 )
 {
     computed_keys<public_key_t, secret_key_t> result;
-    generate_from_derivation(result.main_key_public,           result.main_key_secret,           main_key_derivation);
-    generate_from_derivation(result.signing_key_public,        result.signing_key_secret,        signing_key_derivation);
-    generate_from_derivation(result.encryption_key_public,     result.encryption_key_secret,     encryption_key_derivation);
-    generate_from_derivation(result.authentication_key_public, result.authentication_key_secret, authentication_key_derivation);
+    generate_from_derivation<modulus_size>(result.main_key_public,           result.main_key_secret,           main_key_derivation);
+    generate_from_derivation<modulus_size>(result.signing_key_public,        result.signing_key_secret,        signing_key_derivation);
+    generate_from_derivation<modulus_size>(result.encryption_key_public,     result.encryption_key_secret,     encryption_key_derivation);
+    generate_from_derivation<modulus_size>(result.authentication_key_public, result.authentication_key_secret, authentication_key_derivation);
     return result;
 }
 
-pgp::packet parameters::ecdsa::secret_key_packet(key_type type, uint32_t creation, const public_key_t &public_key, const secret_key_t &secret_key)
+template <size_t modulus_size>
+pgp::packet parameters::rsa<modulus_size>::secret_key_packet(key_type type, uint32_t creation, const public_key_t &public_key, const secret_key_t &secret_key)
 {
     switch (type) {
         case key_type::main:
             return pgp::packet{
                 mpark::in_place_type_t<pgp::secret_key>{},                  // we are building a secret key
                 creation,                                                   // created at
-                pgp::key_algorithm::ecdsa,                                  // using the ecdsa key algorithm
-                mpark::in_place_type_t<pgp::secret_key::ecdsa_key_t>{},     // key type
+                pgp::key_algorithm::rsa_encrypt_or_sign,                    // using the rsa key algorithm
+                mpark::in_place_type_t<pgp::secret_key::rsa_key_t>{},       // key type
                 std::forward_as_tuple(                                      // public arguments
-                    pgp::curve_oid::ecdsa(),                                // curve to use
-                    pgp::multiprecision_integer{ public_key }               // copy in the public key point
+                    public_key.n, public_key.e                              // copy in the public key parameters
                 ),
                 std::forward_as_tuple(                                      // secret arguments
-                    pgp::multiprecision_integer{ secret_key }               // copy in the secret key point
+                    secret_key.d, secret_key.p, secret_key.q, secret_key.u  // copy in the secret key parameters
                 )
             };
 
@@ -73,14 +73,13 @@ pgp::packet parameters::ecdsa::secret_key_packet(key_type type, uint32_t creatio
             return pgp::packet{
                 mpark::in_place_type_t<pgp::secret_subkey>{},               // we are building a secret subkey
                 creation,                                                   // created at
-                pgp::key_algorithm::ecdsa,                                  // using the ecdsa key algorithm
-                mpark::in_place_type_t<pgp::secret_key::ecdsa_key_t>{},     // key type
+                pgp::key_algorithm::rsa_encrypt_or_sign,                    // using the rsa key algorithm
+                mpark::in_place_type_t<pgp::secret_key::rsa_key_t>{},       // key type
                 std::forward_as_tuple(                                      // public arguments
-                    pgp::curve_oid::ecdsa(),                                // curve to use
-                    pgp::multiprecision_integer{ public_key }               // copy in the public key point
+                    public_key.n, public_key.e                              // copy in the public key parameters
                 ),
                 std::forward_as_tuple(                                      // secret arguments
-                    pgp::multiprecision_integer{ secret_key }               // copy in the secret key point
+                    secret_key.d, secret_key.p, secret_key.q, secret_key.u  // copy in the secret key parameters
                 )
             };
 
@@ -88,22 +87,20 @@ pgp::packet parameters::ecdsa::secret_key_packet(key_type type, uint32_t creatio
             return pgp::packet{
                 mpark::in_place_type_t<pgp::secret_subkey>{},               // we are building a secret subkey
                 creation,                                                   // created at
-                pgp::key_algorithm::ecdh,                                   // using the ecdh key algorithm
-                mpark::in_place_type_t<pgp::secret_key::ecdh_key_t>{},      // key type
+                pgp::key_algorithm::rsa_encrypt_or_sign,                    // using the rsa key algorithm
+                mpark::in_place_type_t<pgp::secret_key::rsa_key_t>{},       // key type
                 std::forward_as_tuple(                                      // public arguments
-                    pgp::curve_oid::ecdsa(),                                // curve to use
-                    pgp::multiprecision_integer{ public_key },              // copy in the public key point
-                    pgp::hash_algorithm::sha256,                            // use sha256 as hashing algorithm
-                    pgp::symmetric_key_algorithm::aes128                    // and aes128 as the symmetric key algorithm
+                    public_key.n, public_key.e                              // copy in the public key parameters
                 ),
                 std::forward_as_tuple(                                      // secret arguments
-                    pgp::multiprecision_integer{ secret_key }               // copy in the secret key point
+                    secret_key.d, secret_key.p, secret_key.q, secret_key.u  // copy in the secret key parameters
                 )
             };
     }
 }
 
-pgp::packet parameters::ecdsa::user_id_signature_packet(const pgp::user_id &user_id, const pgp::secret_key &main_key, uint32_t signature_creation, uint32_t signature_expiration)
+template <size_t modulus_size>
+pgp::packet parameters::rsa<modulus_size>::user_id_signature_packet(const pgp::user_id &user_id, const pgp::secret_key &main_key, uint32_t signature_creation, uint32_t signature_expiration)
 {
     return pgp::packet{
         mpark::in_place_type_t<pgp::signature>{},                               // we are making a signature
@@ -120,7 +117,8 @@ pgp::packet parameters::ecdsa::user_id_signature_packet(const pgp::user_id &user
     };
 }
 
-pgp::packet parameters::ecdsa::subkey_signature_packet(key_type type, const pgp::secret_subkey &subkey, const pgp::secret_key &main_key, uint32_t signature_creation, uint32_t signature_expiration)
+template <size_t modulus_size>
+pgp::packet parameters::rsa<modulus_size>::subkey_signature_packet(key_type type, const pgp::secret_subkey &subkey, const pgp::secret_key &main_key, uint32_t signature_creation, uint32_t signature_expiration)
 {
     if (type == key_type::main) {
         // The main key is not a subkey, so we can't give it a subkey signature.
@@ -141,3 +139,8 @@ pgp::packet parameters::ecdsa::subkey_signature_packet(key_type type, const pgp:
         }}
     };
 }
+
+
+template class parameters::rsa<2048>;
+template class parameters::rsa<4096>;
+template class parameters::rsa<8192>;

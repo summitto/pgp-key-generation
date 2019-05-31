@@ -10,16 +10,18 @@ find_package(CryptoPP   REQUIRED)
 
 set(sources-list
     assert_release.cpp
+    deterministic_rng.cpp
     generate_derived_key.cpp
     parameters.cpp
     parameters_ecdsa.cpp
     parameters_eddsa.cpp
+    parameters_rsa.cpp
 )
 
 # Target definition
+add_compile_options(-Wall -Wextra -g -O0)
 add_executable(generate_derived_key ${sources-list})
 set_property(TARGET generate_derived_key PROPERTY CXX_STANDARD 17)
-add_compile_options(-Wall -Wextra -g -O0)
 
 # Add pgp-packet
 target_link_libraries(generate_derived_key pgp-packet)

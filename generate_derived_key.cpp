@@ -14,6 +14,7 @@
 #include "hexadecimal.h"
 #include "parameters_eddsa.h"
 #include "parameters_ecdsa.h"
+#include "parameters_rsa.h"
 
 namespace {
 
@@ -59,6 +60,9 @@ namespace {
     enum class key_class {
         eddsa,
         ecdsa,
+        rsa2048,
+        rsa4096,
+        rsa8192,
     };
 
     /**
@@ -77,6 +81,12 @@ namespace {
                 cl = key_class::eddsa;
             } else if (word == "ecdsa") {
                 cl = key_class::ecdsa;
+            } else if (word == "rsa2048") {
+                cl = key_class::rsa2048;
+            } else if (word == "rsa4096") {
+                cl = key_class::rsa4096;
+            } else if (word == "rsa8192") {
+                cl = key_class::rsa8192;
             } else {
                 // no parse, set the fail bit
                 s.setstate(std::ios_base::failbit);
@@ -98,6 +108,9 @@ namespace {
         switch (type) {
             case key_class::eddsa:   return "EDDSA";
             case key_class::ecdsa:   return "ECDSA";
+            case key_class::rsa2048: return "RSA 2048-bit";
+            case key_class::rsa4096: return "RSA 4096-bit";
+            case key_class::rsa8192: return "RSA 8192-bit";
         }
     }
 
@@ -357,13 +370,16 @@ int main(int argc, const char **argv)
     error_checker<0> checker;
 
     // initialize libsodium
-    checker = sodium_init();
+    checker << sodium_init();
 
     // select the function with which to generate the packets
     std::function<std::vector<pgp::packet>(const master_key&, std::string, uint32_t, uint32_t, uint32_t, boost::string_view)> generation_function;
     switch (*options.type) {
         case key_class::eddsa: generation_function = generate_key<parameters::eddsa>; break;
         case key_class::ecdsa: generation_function = generate_key<parameters::ecdsa>; break;
+        case key_class::rsa2048: generation_function = generate_key<parameters::rsa<2048>>; break;
+        case key_class::rsa4096: generation_function = generate_key<parameters::rsa<4096>>; break;
+        case key_class::rsa8192: generation_function = generate_key<parameters::rsa<8192>>; break;
     }
 
     // generate the packets

@@ -1,23 +1,23 @@
 #pragma once
 
-#include <cryptopp/eccrypto.h>
 #include "parameters.h"
+#include "deterministic_rng.h"
 
 
 namespace parameters {
 
-    class ecdsa {
+    template <size_t modulus_size>
+    class rsa {
     public:
-        static constexpr const std::array<uint8_t, 1> public_key_tag{0x04};
+        static constexpr const size_t derivation_size = deterministic_rng::seed_size;
 
-        // There is no easily found size const for defining key length in cryptopp
-        // TODO: do better than magic constants
-        static constexpr const size_t public_key_size = 65;
-        static constexpr const size_t secret_key_size = 32;
-        static constexpr const size_t derivation_size = secret_key_size;
+        struct public_key_t {
+            pgp::multiprecision_integer n, e;
+        };
 
-        using public_key_t = std::array<uint8_t, public_key_size>;
-        using secret_key_t = std::array<uint8_t, secret_key_size>;
+        struct secret_key_t {
+            pgp::multiprecision_integer d, p, q, u;
+        };
 
         static computed_keys<public_key_t, secret_key_t> compute_keys(
             const std::array<uint8_t, derivation_size> &main_key_derivation,
