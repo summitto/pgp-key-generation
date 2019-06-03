@@ -1,5 +1,6 @@
 #include <sodium/crypto_stream_chacha20.h>
 #include <cryptopp/cryptlib.h>
+#include <array>
 
 #if (CRYPTOPP_VERSION <= 600)
     // cryptopp made the unfathomable decision to add
