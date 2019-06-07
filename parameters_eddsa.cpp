@@ -132,6 +132,7 @@ pgp::packet parameters::eddsa::user_id_signature_packet(const pgp::user_id &user
         pgp::signature_subpacket_set{{                                               // hashed subpackets
             pgp::signature_subpacket::signature_creation_time{ signature_creation  },    // signature was created at
             pgp::signature_subpacket::key_expiration_time    { signature_expiration },   // signature expires at
+            pgp::signature_subpacket::issuer_fingerprint{ main_key.fingerprint() },  // fingerprint of the key we are signing with
             parameters::key_flags_for_type(key_type::main)                           // the privileges for the main key
         }},
         pgp::signature_subpacket_set{{                                               // unhashed subpackets
@@ -154,6 +155,7 @@ pgp::packet parameters::eddsa::subkey_signature_packet(key_type type, const pgp:
         pgp::signature_subpacket_set{{                                               // hashed subpackets
             pgp::signature_subpacket::signature_creation_time{ signature_creation  },    // signature created at
             pgp::signature_subpacket::key_expiration_time    { signature_expiration },   // signature expires at
+            pgp::signature_subpacket::issuer_fingerprint{ main_key.fingerprint() },  // fingerprint of the key we are signing with
             parameters::key_flags_for_type(type)                                     // the privileges for this subkey
         }},
         pgp::signature_subpacket_set{{                                               // unhashed subpackets
