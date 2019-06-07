@@ -12,7 +12,7 @@ namespace parameters {
         authentication,
     };
 
-    pgp::key_flags_subpacket key_flags_for_type(key_type type) noexcept;
+    pgp::signature_subpacket::key_flags key_flags_for_type(key_type type) noexcept;
 
     template <typename public_key_t, typename secret_key_t>
     struct computed_keys {

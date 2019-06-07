@@ -103,16 +103,16 @@ template <size_t modulus_size>
 pgp::packet parameters::rsa<modulus_size>::user_id_signature_packet(const pgp::user_id &user_id, const pgp::secret_key &main_key, uint32_t signature_creation, uint32_t signature_expiration)
 {
     return pgp::packet{
-        mpark::in_place_type_t<pgp::signature>{},                               // we are making a signature
-        main_key,                                                               // we sign with the main key
-        user_id,                                                                // for this user
-        pgp::signature_subpacket_set{{                                          // hashed subpackets
-            pgp::signature_creation_time_subpacket  { signature_creation  },    // signature was created at
-            pgp::key_expiration_time_subpacket      { signature_expiration },   // signature expires at
-            parameters::key_flags_for_type(key_type::main)                      // the privileges for the main key
+        mpark::in_place_type_t<pgp::signature>{},                                   // we are making a signature
+        main_key,                                                                   // we sign with the main key
+        user_id,                                                                    // for this user
+        pgp::signature_subpacket_set{{                                              // hashed subpackets
+            pgp::signature_subpacket::signature_creation_time  { signature_creation  },    // signature was created at
+            pgp::signature_subpacket::key_expiration_time      { signature_expiration },   // signature expires at
+            parameters::key_flags_for_type(key_type::main)                          // the privileges for the main key
         }},
-        pgp::signature_subpacket_set{{                                          // unhashed subpackets
-            pgp::issuer_subpacket{ main_key.fingerprint() }                     // fingerprint of the key we are signing with
+        pgp::signature_subpacket_set{{                                              // unhashed subpackets
+            pgp::signature_subpacket::issuer{ main_key.key_id() }                   // fingerprint of the key we are signing with
         }}
     };
 }
@@ -126,16 +126,16 @@ pgp::packet parameters::rsa<modulus_size>::subkey_signature_packet(key_type type
     }
 
     return pgp::packet{
-        mpark::in_place_type_t<pgp::signature>{},                               // subkey signature
-        main_key,                                                               // we sign with the main key
-        subkey,                                                                 // indicating we own this subkey
-        pgp::signature_subpacket_set{{                                          // hashed subpackets
-            pgp::signature_creation_time_subpacket  { signature_creation  },    // signature created at
-            pgp::key_expiration_time_subpacket      { signature_expiration },   // signature expires at
-            parameters::key_flags_for_type(type)                                // the privileges for this subkey
+        mpark::in_place_type_t<pgp::signature>{},                                   // subkey signature
+        main_key,                                                                   // we sign with the main key
+        subkey,                                                                     // indicating we own this subkey
+        pgp::signature_subpacket_set{{                                              // hashed subpackets
+            pgp::signature_subpacket::signature_creation_time  { signature_creation  },    // signature created at
+            pgp::signature_subpacket::key_expiration_time      { signature_expiration },   // signature expires at
+            parameters::key_flags_for_type(type)                                    // the privileges for this subkey
         }},
-        pgp::signature_subpacket_set{{                                          // unhashed subpackets
-            pgp::issuer_subpacket{ main_key.fingerprint() }                     // fingerprint of the signing key
+        pgp::signature_subpacket_set{{                                              // unhashed subpackets
+            pgp::signature_subpacket::issuer{ main_key.key_id() }                  // fingerprint of the key we are signing with
         }}
     };
 }
