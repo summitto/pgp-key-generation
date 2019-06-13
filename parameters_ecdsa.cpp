@@ -128,18 +128,42 @@ pgp::packet parameters::ecdsa::subkey_signature_packet(key_type type, const pgp:
         throw std::logic_error("subkey_signature_packet called with key_type::main");
     }
 
+    // get the key flags for this key type
+    pgp::signature_subpacket::key_flags key_flags{parameters::key_flags_for_type(type)};
+
+    // the unhashed subpackets in the signature
+    std::vector<pgp::signature_subpacket_set::subpacket_variant> unhashed_subpackets{
+        pgp::signature_subpacket::issuer{ main_key.key_id() }  // fingerprint of the key we are signing with
+    };
+
+    // if this subkey is usable for signing
+    if (key_flags.is_set(pgp::key_flag::signing)) {
+        // add a cross-signature (https://gnupg.org/faq/subkey-cross-certify.html)
+        unhashed_subpackets.emplace_back(
+            mpark::in_place_type_t<pgp::signature_subpacket::embedded_signature>{},
+            pgp::signature{
+                subkey,
+                main_key,
+                pgp::signature_subpacket_set{{
+                    pgp::signature_subpacket::signature_creation_time { signature_creation }
+                }},
+                pgp::signature_subpacket_set{{
+                    pgp::signature_subpacket::issuer{ subkey.key_id() }
+                }}
+            }
+        );
+    }
+
     return pgp::packet{
-        mpark::in_place_type_t<pgp::signature>{},                                   // subkey signature
-        main_key,                                                                   // we sign with the main key
-        subkey,                                                                     // indicating we own this subkey
-        pgp::signature_subpacket_set{{                                              // hashed subpackets
-            pgp::signature_subpacket::signature_creation_time  { signature_creation  },    // signature created at
-            pgp::signature_subpacket::key_expiration_time      { signature_expiration },   // signature expires at
-            pgp::signature_subpacket::issuer_fingerprint{ main_key.fingerprint() },  // fingerprint of the key we are signing with
-            parameters::key_flags_for_type(type)                                    // the privileges for this subkey
+        mpark::in_place_type_t<pgp::signature>{},                                        // subkey signature
+        main_key,                                                                        // we sign with the main key
+        subkey,                                                                          // indicating we own this subkey
+        pgp::signature_subpacket_set{{                                                   // hashed subpackets
+            pgp::signature_subpacket::signature_creation_time{ signature_creation  },    // signature created at
+            pgp::signature_subpacket::key_expiration_time    { signature_expiration },   // signature expires at
+            pgp::signature_subpacket::issuer_fingerprint     { main_key.fingerprint() }, // fingerprint of the key we are signing with
+            parameters::key_flags_for_type(type)                                         // the privileges for this subkey
         }},
-        pgp::signature_subpacket_set{{                                              // unhashed subpackets
-            pgp::signature_subpacket::issuer{ main_key.key_id() }                   // key ID of the key we are signing with
-        }}
+        unhashed_subpackets                                                              // the unhashed subpackets
     };
 }
