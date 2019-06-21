@@ -132,14 +132,14 @@ std::vector<pgp::packet> generate_key(const master_key &master, std::string user
 
     // add the primary key packet
     packets.push_back(params_t::secret_key_packet(parameters::key_type::main, creation, keys.main_key_public, keys.main_key_secret));
-    auto &main_key = mpark::get<pgp::secret_key>(packets[0].body());
+    auto &main_key = pgp::get<pgp::secret_key>(packets[0].body());
 
     // add the user id packet
     packets.emplace_back(
-       mpark::in_place_type_t<pgp::user_id>{},   // we are building a user id
+       pgp::in_place_type_t<pgp::user_id>{},     // we are building a user id
        std::move(user)                           // for this user
     );
-    auto &user_id = mpark::get<pgp::user_id>(packets[1].body());
+    auto &user_id = pgp::get<pgp::user_id>(packets[1].body());
 
     // add self-signature for the main key
     packets.push_back(params_t::user_id_signature_packet(user_id, main_key, signature, expiration));
@@ -154,7 +154,7 @@ std::vector<pgp::packet> generate_key(const master_key &master, std::string user
         packets.push_back(params_t::secret_key_packet(type, creation, public_key, secret_key));
 
         // retrieve the created key; we need it to construct the signature packet
-        auto &created_key = mpark::get<pgp::secret_subkey>(packets.back().body());
+        auto &created_key = pgp::get<pgp::secret_subkey>(packets.back().body());
 
         // add a self-signature for the subkey
         packets.push_back(params_t::subkey_signature_packet(type, created_key, main_key, signature, expiration));
