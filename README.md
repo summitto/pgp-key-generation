@@ -1,17 +1,16 @@
-PGP key generation
-==================
+# PGP key generation
 
 This repository provides the source for a utility used for creating
 PGP keys using libsodium. The keys generated can be deterministic.
 
-DEPENDENCIES
-============
+## Dependencies
 
-This repository depends only on the pgp-packet-library - and the
-dependencies it has.
+The source code can be built using only the dependencies of the
+pgp-packet-library. The integration testing script, which can be run using
+`make test` in the build folder, additionally requires Python 3.7 (or 3.6 with
+the `dataclasses` library) and GnuPG to be installed.
 
-GENERATING NEW KEYS
-===============
+## Generating new keys
 
 - If you have a new smartcard, change the user and admin pin first. See: https://www.gnupg.org/howtos/card-howto/en/ch03s02.html
 
@@ -54,7 +53,6 @@ You should now have a functional key. You can test it as follows:
 - gpg -r [key id] --encrypt test.txt
 - gpg --decrypt test.txt.gpg
 
-UPDATING EXISTING KEYS
-===============
+## Updating existing keys
 
 If you want to change the expiry date of existing keys, you can simply follow the steps above again to generate a new key with a different expiry date, using your encrypted seed and passphrase.
