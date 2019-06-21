@@ -1,6 +1,7 @@
 #include <cryptopp/oids.h>
 #include "parameters_ecdsa.h"
 #include "assert_release.h"
+#include "packet_utils.h"
 #include "errors.h"
 
 
@@ -105,39 +106,10 @@ pgp::packet parameters::ecdsa::secret_key_packet(key_type type, uint32_t creatio
 
 pgp::packet parameters::ecdsa::user_id_signature_packet(const pgp::user_id &user_id, const pgp::secret_key &main_key, uint32_t signature_creation, uint32_t signature_expiration)
 {
-    return pgp::packet{
-        mpark::in_place_type_t<pgp::signature>{},                               // we are making a signature
-        main_key,                                                               // we sign with the main key
-        user_id,                                                                // for this user
-        pgp::signature_subpacket_set{{                                          // hashed subpackets
-            pgp::signature_creation_time_subpacket  { signature_creation  },    // signature was created at
-            pgp::key_expiration_time_subpacket      { signature_expiration },   // signature expires at
-            parameters::key_flags_for_type(key_type::main)                      // the privileges for the main key
-        }},
-        pgp::signature_subpacket_set{{                                          // unhashed subpackets
-            pgp::issuer_subpacket{ main_key.fingerprint() }                     // fingerprint of the key we are signing with
-        }}
-    };
+    return packet_utils::user_id_signature(user_id, main_key, signature_creation, signature_expiration);
 }
 
 pgp::packet parameters::ecdsa::subkey_signature_packet(key_type type, const pgp::secret_subkey &subkey, const pgp::secret_key &main_key, uint32_t signature_creation, uint32_t signature_expiration)
 {
-    if (type == key_type::main) {
-        // The main key is not a subkey, so we can't give it a subkey signature.
-        throw std::logic_error("subkey_signature_packet called with key_type::main");
-    }
-
-    return pgp::packet{
-        mpark::in_place_type_t<pgp::signature>{},                               // subkey signature
-        main_key,                                                               // we sign with the main key
-        subkey,                                                                 // indicating we own this subkey
-        pgp::signature_subpacket_set{{                                          // hashed subpackets
-            pgp::signature_creation_time_subpacket  { signature_creation  },    // signature created at
-            pgp::key_expiration_time_subpacket      { signature_expiration },   // signature expires at
-            parameters::key_flags_for_type(type)                                // the privileges for this subkey
-        }},
-        pgp::signature_subpacket_set{{                                          // unhashed subpackets
-            pgp::issuer_subpacket{ main_key.fingerprint() }                     // fingerprint of the signing key
-        }}
-    };
+    return packet_utils::subkey_signature(type, subkey, main_key, signature_creation, signature_expiration);
 }
