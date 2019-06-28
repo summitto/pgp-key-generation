@@ -155,6 +155,75 @@ class GPGApplication(Application):
 
         super().__exit__(*args)
 
+def gracefully_terminate(proc):
+    proc.terminate()
+    try:
+        proc.wait(timeout = 1)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        assert proc.wait() is not None
+
+class SSHD:
+    def __init__(self):
+        self._tempdir = tempfile.TemporaryDirectory()
+        self._tempdir_name = self._tempdir.name
+
+        self._port = 2222
+        self._config_file = os.path.join(self._tempdir_name, "sshd_config")
+        self._auth_keys_file = os.path.join(self._tempdir_name, "authorized_keys")
+        self._host_key_file = os.path.join(self._tempdir_name, "ssh_host_rsa_key")
+
+        # Create the authorized_keys file so that we can set its permissions to 600
+        with open(self._auth_keys_file, "w") as f: pass
+        os.chmod(self._auth_keys_file, 0o600)
+
+    def __enter__(self):
+        # Write the sshd_config file
+        with open(self._config_file, "w") as f:
+            f.write("""Port {}
+AuthorizedKeysFile {}
+ChallengeResponseAuthentication no
+PasswordAuthentication no
+UsePAM no
+HostKey {}
+ForceCommand true
+StrictModes no
+""".format(self._port, self._auth_keys_file, self._host_key_file))
+
+        # Generate the host key
+        subprocess.check_call(["ssh-keygen", "-t", "rsa", "-N", "", "-f", self._host_key_file])
+
+        # Start sshd
+        self._proc = subprocess.Popen(["/usr/bin/sshd", "-d", "-f", self._config_file])
+
+        return self
+
+    def __exit__(self, *args):
+        gracefully_terminate(self._proc)
+        self._tempdir.cleanup()
+
+    def set_authorized_key(self, key_string):
+        with open(self._auth_keys_file, "w") as f:
+            f.write(key_string + "\n")
+
+    def port(self):
+        return self._port
+
+    def host_key_entry(self):
+        with open(self._host_key_file + ".pub") as f:
+            return "127.0.0.1 " + f.read().strip()
+
+class GPGAgent:
+    def __init__(self, homedir):
+        self._homedir = homedir
+
+    def __enter__(self):
+        self._proc = subprocess.Popen(["gpg-agent", "--homedir", self._homedir, "--daemon"])
+
+    def __exit__(self, *args):
+        gracefully_terminate(self._proc)
+
+
 def parse_pgp_packet(filename):
     # Parse the packet stream using gpg
     with GPGApplication(["--list-packets", "--verbose", filename]) as app:
@@ -216,6 +285,38 @@ def decrypt_file(encrypted_fname, output_fname, **kwargs):
     # The output file should now only exist if the operation succeeded
     return os.access(output_fname, os.F_OK)
 
+# Passes all keyword arguments on to GPGApplication.
+def export_ssh_authorized_key(keyid, **kwargs):
+    with GPGApplication(["--export-ssh-key", keyid], **kwargs) as app:
+        return app.read_all().strip()
+
+# Passes all keyword arguments on to GPGApplication.
+def export_gpg_secret_key(keyid, **kwargs):
+    with GPGApplication(["--armor", "--export-secret-key", keyid], **kwargs) as app:
+        return app.read_all()
+
+# Passes all keyword arguments on to GPGApplication.
+def get_keygrip(keyid, **kwargs):
+    with GPGApplication(["--list-keys", "--with-colons", "--with-keygrip", keyid], **kwargs) as app:
+        output = app.read_all()
+
+    current_id = None
+
+    for line in output.split("\n"):
+        if len(line) == 0:
+            continue
+
+        fields = line.split(":")
+        if fields[0] == "pub" or fields[0] == "sub":
+            # Field 4 is the key ID
+            current_id = fields[4]
+        elif fields[0] == "grp":
+            if current_id == keyid:
+                # Field 9 is the keygrip
+                return fields[9]
+
+    return None
+
 # Use the specification to generate an initial key and its recovery seed
 def generate_initial_key(workdir, exec_name, appinput):
     keyfile = os.path.join(workdir, safe_temporary_name())
@@ -252,8 +353,11 @@ def report_error(appinput, keyfile):
     shutil.copy(keyfile, fname)
     print("Generated key file copied to '{}'".format(fname))
 
-def run_test(exec_name, key_class):
+def run_test(exec_name, key_class, sshd):
     with tempfile.TemporaryDirectory() as tempdir:
+        # --- Ensure that the temporary directory is only rwx by us
+        os.chmod(tempdir, 0o700)
+
         # --- Generate a new input set
         appinput = AppInput.generate(key_class)
 
@@ -291,32 +395,70 @@ def run_test(exec_name, key_class):
         #     generated key after it is imported, so we create a
         #     dedicated GPG homedir for gpg to store its state in
         with tempfile.TemporaryDirectory() as gpg_homedir:
-            # --- Test importing a key
-            if not import_gpg_packet(keyfile1, gpg_homedir = gpg_homedir):
-                print("Key import didn't work")
-                report_error(appinput, keyfile1)
-                return False
+            # We also need a GPG agent in that directory
+            with GPGAgent(gpg_homedir):
+                # --- Test importing a key
+                if not import_gpg_packet(keyfile1, gpg_homedir = gpg_homedir):
+                    print("Key import didn't work")
+                    report_error(appinput, keyfile1)
+                    return False
 
-            # --- Test signing and encrypting data
-            message_fname = make_random_file(tempdir, 1000)
-            output_fname = os.path.join(tempdir, safe_temporary_name())
-            if not sign_encrypt_file(keyid, message_fname, output_fname, gpg_homedir = gpg_homedir):
-                print("Sign+encrypt didn't work")
-                report_error(appinput, keyfile1)
-                return False
+                # --- Test signing and encrypting data
+                message_fname = make_random_file(tempdir, 1000)
+                output_fname = os.path.join(tempdir, safe_temporary_name())
+                if not sign_encrypt_file(keyid, message_fname, output_fname, gpg_homedir = gpg_homedir):
+                    print("Sign+encrypt didn't work")
+                    report_error(appinput, keyfile1)
+                    return False
 
-            # --- Test decrypting (and verifying) the file created above
-            decrypt_fname = os.path.join(tempdir, safe_temporary_name())
-            if not decrypt_file(output_fname, decrypt_fname, gpg_homedir = gpg_homedir):
-                print("Decrypt didn't work")
-                report_error(appinput, keyfile1)
-                return False
+                # --- Test decrypting (and verifying) the file created above
+                decrypt_fname = os.path.join(tempdir, safe_temporary_name())
+                if not decrypt_file(output_fname, decrypt_fname, gpg_homedir = gpg_homedir):
+                    print("Decrypt didn't work")
+                    report_error(appinput, keyfile1)
+                    return False
 
-            # --- Check whether decryption yielded the original file again
-            if not filecmp.cmp(message_fname, decrypt_fname, shallow = False):
-                print("Decryption produced a different file than was encrypted")
-                report_error(appinput, keyfile1)
-                return False
+                # --- Check whether decryption yielded the original file again
+                if not filecmp.cmp(message_fname, decrypt_fname, shallow = False):
+                    print("Decryption produced a different file than was encrypted")
+                    report_error(appinput, keyfile1)
+                    return False
+
+                # --- Now test the authentication subkey.
+                # Find the authentication subkey
+                auth_keyid = find_key_with_flags(parsed1, 0x20)
+                if auth_keyid is None:
+                    print("No purely-authentication subkey found")
+                    report_error(appinput, keyfile1)
+                    return False
+
+                # Inform gpg-agent that this authentication subkey should be used for SSH authentication
+                auth_keygrip = get_keygrip(auth_keyid, gpg_homedir = gpg_homedir)
+                with open(os.path.join(gpg_homedir, "sshcontrol"), "w") as f:
+                    f.write(auth_keygrip + "\n")
+
+                # Get the name of the socket that gpg-agent listens on for SSH authentication
+                ssh_auth_sock = subprocess.check_output(["gpgconf", "--homedir", gpg_homedir, "--list-dirs", "agent-ssh-socket"])
+
+                # Export the ssh key using gpg and authorize it in the sshd daemon
+                # (note that this automatically selects the authentication subkey)
+                ssh_authorized_key_string = export_ssh_authorized_key(keyid, gpg_homedir = gpg_homedir)
+                sshd.set_authorized_key(ssh_authorized_key_string)
+
+                # Get the host key and write it to a file
+                ssh_host_key_entry = sshd.host_key_entry()
+                ssh_known_hosts_name = os.path.join(tempdir, safe_temporary_name())
+                with open(ssh_known_hosts_name, "w") as f: f.write(ssh_host_key_entry + "\n")
+
+                # Try logging in
+                try:
+                    ssh_env = os.environ.copy()
+                    ssh_env["SSH_AUTH_SOCK"] = ssh_auth_sock
+                    subprocess.check_call(["ssh", "-o", "CheckHostIP=no", "-o", "UserKnownHostsFile=" + ssh_known_hosts_name, "-p", str(sshd.port()), "127.0.0.1"], env = ssh_env)
+                except subprocess.CalledProcessError:
+                    print("ssh failed, possibly due to invalid authentication subkey?")
+                    report_error(appinput, keyfile1)
+                    return False
 
     return True
 
@@ -331,12 +473,13 @@ def main():
     num_tests = 20
     key_classes = ["eddsa", "ecdsa", "rsa2048"]
 
-    for key_class in key_classes:
-        print("Running {} random tests for {}...".format(num_tests, key_class))
+    with SSHD() as sshd:
+        for key_class in key_classes:
+            print("Running {} random tests for {}...".format(num_tests, key_class))
 
-        for test_index in range(num_tests):
-            if not run_test(exec_name, key_class):
-                sys.exit(1)
+            for test_index in range(num_tests):
+                if not run_test(exec_name, key_class, sshd):
+                    sys.exit(1)
 
     print("Succeeded!")
 

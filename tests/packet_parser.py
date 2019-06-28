@@ -67,6 +67,22 @@ class SignaturePacket(Packet):
     datas: List[str] = dataclasses.field(compare = False)
 
 
+def find_key_with_flags(packets, target_flags):
+    for packet in packets:
+        if isinstance(packet, SignaturePacket):
+            flags = [subpacket.flags
+                     for subpacket in packet.hashed_subs
+                     if isinstance(subpacket, KeyFlagsSubpacket)]
+            if len(flags) == 0:
+                raise Exception("No key_flags subpacket in signature of keyid {}".format(packet.keyid))
+            if len(flags) > 1:
+                raise Exception("Multiple key_flags subpackets in signature of keyid {}".format(packet.keyid))
+            if flags[0] == target_flags:
+                return packet.keyid
+
+    return None
+
+
 def parse_gpg_packet_listing(output):
     # Ignore the offset comments
     output = [line for line in output if not line.startswith("#")]
