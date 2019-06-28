@@ -57,10 +57,10 @@ pgp::packet parameters::rsa<modulus_size>::secret_key_packet(key_type type, uint
     switch (type) {
         case key_type::main:
             return pgp::packet{
-                mpark::in_place_type_t<pgp::secret_key>{},                  // we are building a secret key
+                pgp::in_place_type_t<pgp::secret_key>{},                    // we are building a secret key
                 creation,                                                   // created at
                 pgp::key_algorithm::rsa_encrypt_or_sign,                    // using the rsa key algorithm
-                mpark::in_place_type_t<pgp::secret_key::rsa_key_t>{},       // key type
+                pgp::in_place_type_t<pgp::secret_key::rsa_key_t>{},         // key type
                 std::forward_as_tuple(                                      // public arguments
                     public_key.n, public_key.e                              // copy in the public key parameters
                 ),
@@ -72,10 +72,10 @@ pgp::packet parameters::rsa<modulus_size>::secret_key_packet(key_type type, uint
         case key_type::signing:
         case key_type::authentication:
             return pgp::packet{
-                mpark::in_place_type_t<pgp::secret_subkey>{},               // we are building a secret subkey
+                pgp::in_place_type_t<pgp::secret_subkey>{},                 // we are building a secret subkey
                 creation,                                                   // created at
                 pgp::key_algorithm::rsa_encrypt_or_sign,                    // using the rsa key algorithm
-                mpark::in_place_type_t<pgp::secret_key::rsa_key_t>{},       // key type
+                pgp::in_place_type_t<pgp::secret_key::rsa_key_t>{},         // key type
                 std::forward_as_tuple(                                      // public arguments
                     public_key.n, public_key.e                              // copy in the public key parameters
                 ),
@@ -86,10 +86,10 @@ pgp::packet parameters::rsa<modulus_size>::secret_key_packet(key_type type, uint
 
         case key_type::encryption:
             return pgp::packet{
-                mpark::in_place_type_t<pgp::secret_subkey>{},               // we are building a secret subkey
+                pgp::in_place_type_t<pgp::secret_subkey>{},                 // we are building a secret subkey
                 creation,                                                   // created at
                 pgp::key_algorithm::rsa_encrypt_or_sign,                    // using the rsa key algorithm
-                mpark::in_place_type_t<pgp::secret_key::rsa_key_t>{},       // key type
+                pgp::in_place_type_t<pgp::secret_key::rsa_key_t>{},         // key type
                 std::forward_as_tuple(                                      // public arguments
                     public_key.n, public_key.e                              // copy in the public key parameters
                 ),

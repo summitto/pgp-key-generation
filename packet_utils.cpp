@@ -15,7 +15,7 @@ namespace packet_utils {
     pgp::packet user_id_signature(const pgp::user_id &user_id, const pgp::secret_key &main_key, uint32_t signature_creation, uint32_t signature_expiration)
     {
         return pgp::packet{
-            mpark::in_place_type_t<pgp::signature>{},                                        // we are making a signature
+            pgp::in_place_type_t<pgp::signature>{},                                          // we are making a signature
             main_key,                                                                        // we sign with the main key
             user_id,                                                                         // for this user
             pgp::signature_subpacket_set{{                                                   // hashed subpackets
@@ -59,7 +59,7 @@ namespace packet_utils {
         if (key_flags.is_set(pgp::key_flag::signing)) {
             // add a cross-signature (https://gnupg.org/faq/subkey-cross-certify.html)
             unhashed_subpackets.emplace_back(
-                mpark::in_place_type_t<pgp::signature_subpacket::embedded_signature>{},           // this is an embedded signature packet
+                pgp::in_place_type_t<pgp::signature_subpacket::embedded_signature>{},             // this is an embedded signature packet
                 pgp::signature{
                     subkey,                                                                       // with the subkey
                     main_key,                                                                     // we sign the main key
@@ -75,7 +75,7 @@ namespace packet_utils {
         }
 
         return pgp::packet{
-            mpark::in_place_type_t<pgp::signature>{},                                        // subkey signature
+            pgp::in_place_type_t<pgp::signature>{},                                          // subkey signature
             main_key,                                                                        // we sign with the main key
             subkey,                                                                          // indicating we own this subkey
             pgp::signature_subpacket_set{{                                                   // hashed subpackets

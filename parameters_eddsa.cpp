@@ -76,10 +76,10 @@ pgp::packet parameters::eddsa::secret_key_packet(key_type type, uint32_t creatio
     switch (type) {
         case key_type::main:
             return pgp::packet{
-                mpark::in_place_type_t<pgp::secret_key>{},                  // we are building a secret key
+                pgp::in_place_type_t<pgp::secret_key>{},                    // we are building a secret key
                 creation,                                                   // created at
                 pgp::key_algorithm::eddsa,                                  // using the eddsa key algorithm
-                mpark::in_place_type_t<pgp::secret_key::eddsa_key_t>{},     // key type
+                pgp::in_place_type_t<pgp::secret_key::eddsa_key_t>{},       // key type
                 std::forward_as_tuple(                                      // public arguments
                     pgp::curve_oid::ed25519(),                              // curve to use
                     pgp::multiprecision_integer{ public_key }               // copy in the public key point
@@ -92,10 +92,10 @@ pgp::packet parameters::eddsa::secret_key_packet(key_type type, uint32_t creatio
         case key_type::signing:
         case key_type::authentication:
             return pgp::packet{
-                mpark::in_place_type_t<pgp::secret_subkey>{},               // we are building a secret subkey
+                pgp::in_place_type_t<pgp::secret_subkey>{},                 // we are building a secret subkey
                 creation,                                                   // created at
                 pgp::key_algorithm::eddsa,                                  // using the eddsa key algorithm
-                mpark::in_place_type_t<pgp::secret_key::eddsa_key_t>{},     // key type
+                pgp::in_place_type_t<pgp::secret_key::eddsa_key_t>{},       // key type
                 std::forward_as_tuple(                                      // public arguments
                     pgp::curve_oid::ed25519(),                              // curve to use
                     pgp::multiprecision_integer{ public_key }               // copy in the public key point
@@ -107,10 +107,10 @@ pgp::packet parameters::eddsa::secret_key_packet(key_type type, uint32_t creatio
 
         case key_type::encryption:
             return pgp::packet{
-                mpark::in_place_type_t<pgp::secret_subkey>{},                // we are building a secret subkey
+                pgp::in_place_type_t<pgp::secret_subkey>{},                  // we are building a secret subkey
                 creation,                                                    // created at
                 pgp::key_algorithm::ecdh,                                    // using the ecdh key algorithm
-                mpark::in_place_type_t<pgp::secret_key::ecdh_key_t>{},       // key type
+                pgp::in_place_type_t<pgp::secret_key::ecdh_key_t>{},         // key type
                 std::forward_as_tuple(                                       // public arguments
                     pgp::curve_oid::curve_25519(),                           // curve to use
                     pgp::multiprecision_integer{ public_key },               // copy in the public key point
