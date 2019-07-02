@@ -194,7 +194,7 @@ StrictModes no
         subprocess.check_call(["ssh-keygen", "-t", "rsa", "-N", "", "-f", self._host_key_file])
 
         # Start sshd
-        self._proc = subprocess.Popen(["/usr/bin/sshd", "-d", "-f", self._config_file])
+        self._proc = subprocess.Popen(["/usr/bin/sshd", "-ddd", "-f", self._config_file], stderr = open("sshd_output.txt", "w"))
 
         return self
 
@@ -205,6 +205,7 @@ StrictModes no
     def set_authorized_key(self, key_string):
         with open(self._auth_keys_file, "w") as f:
             f.write(key_string + "\n")
+        print("### file " + self._auth_keys_file + " contains '" + key_string + "'")
 
     def port(self):
         return self._port
@@ -438,7 +439,10 @@ def run_test(exec_name, key_class, sshd):
                     f.write(auth_keygrip + "\n")
 
                 # Get the name of the socket that gpg-agent listens on for SSH authentication
-                ssh_auth_sock = subprocess.check_output(["gpgconf", "--homedir", gpg_homedir, "--list-dirs", "agent-ssh-socket"])
+                ssh_auth_sock = subprocess.check_output(["gpgconf", "--homedir", gpg_homedir, "--list-dirs", "agent-ssh-socket"]) \
+                                          .strip()
+
+                print("### ssh_auth_sock = {}".format(ssh_auth_sock))
 
                 # Export the ssh key using gpg and authorize it in the sshd daemon
                 # (note that this automatically selects the authentication subkey)
@@ -454,7 +458,7 @@ def run_test(exec_name, key_class, sshd):
                 try:
                     ssh_env = os.environ.copy()
                     ssh_env["SSH_AUTH_SOCK"] = ssh_auth_sock
-                    subprocess.check_call(["ssh", "-o", "CheckHostIP=no", "-o", "UserKnownHostsFile=" + ssh_known_hosts_name, "-p", str(sshd.port()), "127.0.0.1"], env = ssh_env)
+                    subprocess.check_call(["ssh", "-vv", "-o", "CheckHostIP=no", "-o", "UserKnownHostsFile=" + ssh_known_hosts_name, "-p", str(sshd.port()), "127.0.0.1"], env = ssh_env)
                 except subprocess.CalledProcessError:
                     print("ssh failed, possibly due to invalid authentication subkey?")
                     report_error(appinput, keyfile1)
