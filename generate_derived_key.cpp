@@ -222,6 +222,10 @@ namespace {
         // the start and end of signature validity
         opt_prompt<tm_wrapper>  signature_creation;
         opt_prompt<tm_wrapper>  signature_expiration;
+
+        // meta-information for the key derivation
+        opt_prompt<std::string> kdf_context;
+        opt_prompt<tm_wrapper>  key_creation;
     };
 
     /**
@@ -240,13 +244,15 @@ namespace {
         // description of the options for the boost option parser
         po::options_description optdesc;
         optdesc.add_options()
-            ("help,h",                                                                           "Produce help message")
-            ("output-file,o", po::value<opt_prompt<std::string>>(&options.output_file),          "Output file")
-            ("key-type,t",    po::value<opt_prompt<key_class>>  (&options.type),                 "Type of the generated key (eddsa/ecdsa)")
-            ("name,n",        po::value<opt_prompt<std::string>>(&options.user_name),            "Your name (firstname lastname)")
-            ("email,e",       po::value<opt_prompt<std::string>>(&options.user_email),           "Your email address")
-            ("sigtime,s",     po::value<opt_prompt<tm_wrapper>> (&options.signature_creation),   "Signature creation time in UTC (YYYY-MM-DD HH:MM:SS)")
-            ("sigexpiry,x",   po::value<opt_prompt<tm_wrapper>> (&options.signature_expiration), "Signature expiration time in UTC (YYYY-MM-DD HH:MM:SS)");
+            ("help,h",                                                                            "Produce help message")
+            ("output-file,o",  po::value<opt_prompt<std::string>>(&options.output_file),          "Output file")
+            ("key-type,t",     po::value<opt_prompt<key_class>>  (&options.type),                 "Type of the generated key (eddsa/ecdsa)")
+            ("name,n",         po::value<opt_prompt<std::string>>(&options.user_name),            "Your name (firstname lastname)")
+            ("email,e",        po::value<opt_prompt<std::string>>(&options.user_email),           "Your email address")
+            ("sigtime,s",      po::value<opt_prompt<tm_wrapper>> (&options.signature_creation),   "Signature creation time in UTC (YYYY-MM-DD HH:MM:SS)")
+            ("sigexpiry,x",    po::value<opt_prompt<tm_wrapper>> (&options.signature_expiration), "Signature expiration time in UTC (YYYY-MM-DD HH:MM:SS)")
+            ("kdf-context,k",  po::value<opt_prompt<std::string>>(&options.kdf_context),          "Key derivation context")
+            ("key-creation,c", po::value<opt_prompt<tm_wrapper>> (&options.key_creation),         "Key creation time in UTC (YYYY-MM-DD HH:MM:SS)");
 
         // run the option parser
         po::variables_map vm;
@@ -284,7 +290,9 @@ namespace {
         options.user_name           .ensure_prompt("Your name (firstname lastname)");
         options.user_email          .ensure_prompt("Your email address");
         options.signature_creation  .ensure_prompt("Signature creation time in UTC (YYYY-MM-DD HH:MM:SS)");
-        options.signature_expiration.ensure_prompt("Signature expiration time in UTC (YYYY-MM-DD HH:MM:SS)");;
+        options.signature_expiration.ensure_prompt("Signature expiration time in UTC (YYYY-MM-DD HH:MM:SS)");
+        options.kdf_context         .ensure_prompt("Key derivation context");
+        options.key_creation        .ensure_prompt("Key creation time in UTC (YYYY-MM-DD HH:MM:SS)");
 
         // return the created options struct
         return options;
@@ -306,10 +314,6 @@ int main(int argc, const char **argv)
     // inform the user about the settings in the command-line arguments
     std::cout << "Using key type " << key_class_description(*options.type) << std::endl;
     std::cout << "Writing key to file '" << *options.output_file << "'" << std::endl;
-
-    // the kdf context and the time at which all keys are created
-    constexpr const auto kdf_context            = "summitto";
-    constexpr const auto key_creation_timestamp = 1511740800;
 
     // the master key for generation
     master_key  master;
@@ -366,6 +370,7 @@ int main(int argc, const char **argv)
     }
 
     // convert the dates to a timestamp
+    std::time_t key_creation_timestamp          = time_utils::tm_to_utc_unix_timestamp(*options.key_creation);
     std::time_t signature_creation_timestamp    = time_utils::tm_to_utc_unix_timestamp(*options.signature_creation);
     std::time_t signature_expiration_timestamp  = time_utils::tm_to_utc_unix_timestamp(*options.signature_expiration);
 
@@ -386,7 +391,7 @@ int main(int argc, const char **argv)
     }
 
     // generate the packets
-    auto packets = generation_function(master, std::move(user_id), key_creation_timestamp, signature_creation_timestamp, signature_expiration_timestamp, kdf_context);
+    auto packets = generation_function(master, std::move(user_id), key_creation_timestamp, signature_creation_timestamp, signature_expiration_timestamp, *options.kdf_context);
 
     // determine output size, create a vector for it and provide it to the encoder
     size_t                  data_size   ( std::accumulate(packets.begin(), packets.end(), 0, [](size_t a, auto &&b) -> size_t { return a + b.size(); }) );
