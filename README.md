@@ -56,3 +56,10 @@ You should now have a functional key. You can test it as follows:
 ## Updating existing keys
 
 If you want to change the expiry date of existing keys, you can simply follow the steps above again to generate a new key with a different expiry date, using your encrypted seed and passphrase.
+
+UPGRADING HARDWARE TOKENS
+=========================
+
+Recently a security bug was found for Nitrokey Start devices, which allows extracting the private key from the device - the very thing it is meant to protect against. If you are using one of these devices you should ensure that you are using the latest firmware. Instructions can be found on the [Nitrokey Start release page](https://github.com/Nitrokey/nitrokey-start-firmware/releases).
+
+Be aware that flashing firmware will erase keys currently residing on the device.
