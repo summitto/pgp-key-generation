@@ -242,7 +242,8 @@ namespace {
         Options options;
 
         // description of the options for the boost option parser
-        po::options_description optdesc;
+        // Set the line length to 100 for slightly wider option descriptions
+        po::options_description optdesc(100);
         optdesc.add_options()
             ("help,h",                                                                            "Produce help message")
             ("output-file,o",  po::value<opt_prompt<std::string>>(&options.output_file),          "Output file")
@@ -286,7 +287,7 @@ namespace {
 
         // ensure that all the options are initialized by possibly reading some from standard input
         options.output_file         .ensure_prompt("Output file");
-        options.type                .ensure_prompt("Type of the generated key (eddsa/ecdsa)");
+        options.type                .ensure_prompt("Type of the generated key (eddsa/ecdsa/rsa{2048,4096,8192})");
         options.user_name           .ensure_prompt("Your name (firstname lastname)");
         options.user_email          .ensure_prompt("Your email address");
         options.signature_creation  .ensure_prompt("Signature creation time in UTC (YYYY-MM-DD HH:MM:SS)");

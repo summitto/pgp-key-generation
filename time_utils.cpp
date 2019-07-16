@@ -41,7 +41,7 @@ std::time_t time_utils::tm_to_utc_unix_timestamp(const std::tm &time)
 
     std::time_t second_in_year = 24 * 3600 * day_in_year + second_in_day;
 
-    std::time_t seconds_before_year = 24 * 3600 * days_since_unix_epoch(1900 + time.tm_year);
+    std::time_t seconds_before_year = 24 * 3600 * static_cast<std::time_t>(days_since_unix_epoch(1900 + time.tm_year));
 
     return seconds_before_year + second_in_year;
 }
