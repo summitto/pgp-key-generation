@@ -64,4 +64,6 @@ class GenerateInput():
             "expiration": datepair[1],
             "dice": GenerateDice.generate(),
             "key": GenerateSymmetricKey.generate(),
+            "context": GenerateString.generate(),
+            "key_creation": "2017-11-27 00:00:00",
         }

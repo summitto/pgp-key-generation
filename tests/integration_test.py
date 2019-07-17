@@ -19,6 +19,8 @@ class AppInput(Generate):
     expiration: str
     dice: str
     key: str
+    context: str
+    key_creation: str
 
     # Generate an input specification given a key type
     def generate(key_type):
@@ -30,7 +32,9 @@ class AppInput(Generate):
             values["creation"],
             values["expiration"],
             values["dice"],
-            values["key"]
+            values["key"],
+            values["context"],
+            values["key_creation"],
         )
 
 
@@ -107,7 +111,9 @@ class KeygenApplication(Application):
             "-n", appinput.name,
             "-e", appinput.email,
             "-s", appinput.creation,
-            "-x", appinput.expiration
+            "-x", appinput.expiration,
+            "-k", appinput.context,
+            "-c", appinput.key_creation
         ]
         super().__init__(exec_name, args)
 
