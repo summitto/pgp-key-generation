@@ -1,4 +1,7 @@
+# !!! EXPERIMENTAL - use at your own risk !!!
+
 # PGP key generation
+
 
 This repository provides the source for a utility used for creating
 PGP keys using libsodium. The keys generated can be deterministic.
@@ -12,17 +15,21 @@ the `dataclasses` library) and GnuPG to be installed.
 
 ## Generating new keys
 
-- If you have a new smartcard, change the user and admin pin first. See: https://www.gnupg.org/howtos/card-howto/en/ch03s02.html
+- If you have a new smartcard, change the user and admin pin first. See:
+  https://www.gnupg.org/howtos/card-howto/en/ch03s02.html
+- install `GnuPG` and this utility on a secure, offline computer. See:
+  https://github.com/summitto/raspbian_setup
+- install `GnuPG` on your main device. Optionally, `scdaemon`, `libccid` and
+  `pcscd` may need to be installed.
+- run key generation utility, for example using:
 
-- install the key generator on a secure, offline computer
-- install `gpg` on both your main device, as well as the secure offline computer. Optionally, `scdaemon`, `libccid` and `pcscd` may need to be used.
-- make sure to setup a ramdisk for storing the .gnupg and the generated key file. Create the .gnupg folder after setting up the ramdisk.
-- run generate_derived_key to create the key and follow the prompts.
+    generate_derived_key -o keyfile -t eddsa -n "firstname lastname" -e email
+    -s "2011-01-01 01:01:01" -x "2099-09-09 09:09:09" -k test -c "2011-01-01
+    01:01:01"
 
-   Example of a creation date: 2018-12-31 23:59:59  
-   Example of an expiry date:  2019-03-31 23:59:59  
-   The program will ask for a passphrase  
-   The program will eiter generate a new encrypted seed or you can use an existing encrypted seed. If you generate a new seed, store it in a secure place  
+- The program will eiter generate a new encrypted seed using dice input, or you
+  can use an existing encrypted seed to generate your key. If you generate a
+  new seed, store it in a secure place  
 - import the generated key file into gpg with "gpg --import file"
 
 If you have a smart card, you can import the private key as follows:
@@ -55,11 +62,21 @@ You should now have a functional key. You can test it as follows:
 
 ## Updating existing keys
 
-If you want to change the expiry date of existing keys, you can simply follow the steps above again to generate a new key with a different expiry date, using your encrypted seed and passphrase.
+If you want to change the expiry date of existing keys, you can simply follow
+the steps above again to generate a new key with a different expiry date, using
+your encrypted seed and passphrase.
 
-UPGRADING HARDWARE TOKENS
-=========================
+Note that before importing a public key with a new expiry date into `GnuPG`,
+you must delete your old public key first.
 
-Recently a security bug was found for Nitrokey Start devices, which allows extracting the private key from the device - the very thing it is meant to protect against. If you are using one of these devices you should ensure that you are using the latest firmware. Instructions can be found on the [Nitrokey Start release page](https://github.com/Nitrokey/nitrokey-start-firmware/releases).
+## Upgrading hardware tokens
 
-Be aware that flashing firmware will erase keys currently residing on the device.
+Recently a security bug was found for Nitrokey Start devices, which allows
+extracting the private key from the device - the very thing it is meant to
+protect against. If you are using one of these devices you should ensure that
+you are using the latest firmware. Instructions can be found on the [Nitrokey
+Start release
+page](https://github.com/Nitrokey/nitrokey-start-firmware/releases).
+
+Be aware that flashing firmware will erase keys currently residing on the
+device.
