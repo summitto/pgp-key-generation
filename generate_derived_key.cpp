@@ -247,7 +247,7 @@ namespace {
         optdesc.add_options()
             ("help,h",                                                                            "Produce help message")
             ("output-file,o",  po::value<opt_prompt<std::string>>(&options.output_file),          "Output file")
-            ("key-type,t",     po::value<opt_prompt<key_class>>  (&options.type),                 "Type of the generated key (eddsa/ecdsa)")
+            ("key-type,t",     po::value<opt_prompt<key_class>>  (&options.type),                 "Type of the generated key (eddsa/ecdsa/rsa{2048,4096,8192})")
             ("name,n",         po::value<opt_prompt<std::string>>(&options.user_name),            "Your name (firstname lastname)")
             ("email,e",        po::value<opt_prompt<std::string>>(&options.user_email),           "Your email address")
             ("sigtime,s",      po::value<opt_prompt<tm_wrapper>> (&options.signature_creation),   "Signature creation time in UTC (YYYY-MM-DD HH:MM:SS)")
