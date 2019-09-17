@@ -11,7 +11,7 @@ from packet_parser import *
 
 # Specification for an execution of the program
 @dataclass
-class AppInput(Generate):
+class AppInput:
     key_type: str
     name: str
     email: str
@@ -24,7 +24,7 @@ class AppInput(Generate):
 
     # Generate an input specification given a key type
     def generate(key_type):
-        values = GenerateInput.generate()
+        values = generateInput()
         return AppInput(
             key_type,
             values["name"],
