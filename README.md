@@ -2,7 +2,6 @@
 
 # PGP key generation
 
-
 This repository provides the source for a utility used for creating
 PGP keys using libsodium. The keys generated can be deterministic.
 
