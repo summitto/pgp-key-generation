@@ -4,8 +4,8 @@ import time
 from date_utils import *
 
 
-def generateString():
-    length = random.randint(1, 200)
+def generateString(**kwargs):
+    length = random.randint(kwargs.get("minstrlen", 1), kwargs.get("maxstrlen", 200))
     return "".join([chr(random.randint(ord(' '), ord('~'))) for _ in range(length)])
 
 def generateName():
@@ -52,6 +52,6 @@ def generateInput():
         "expiration": date_expiration,
         "dice": generateDice(),
         "key": generateSymmetricKey(),
-        "context": generateString(),
+        "context": generateString(minstrlen = 8, maxstrlen = 8),
         "key_creation": date_key_creation
     }

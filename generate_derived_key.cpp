@@ -254,7 +254,7 @@ namespace {
             ("email,e",        po::value<opt_prompt<std::string>>(&options.user_email),           "Your email address")
             ("sigtime,s",      po::value<opt_prompt<tm_wrapper>> (&options.signature_creation),   "Signature creation time in UTC (YYYY-MM-DD HH:MM:SS)")
             ("sigexpiry,x",    po::value<opt_prompt<tm_wrapper>> (&options.signature_expiration), "Signature expiration time in UTC (YYYY-MM-DD HH:MM:SS)")
-            ("kdf-context,k",  po::value<opt_prompt<std::string>>(&options.kdf_context),          "Key derivation context")
+            ("kdf-context,k",  po::value<opt_prompt<std::string>>(&options.kdf_context),          "Key derivation context (8 bytes)")
             ("key-creation,c", po::value<opt_prompt<tm_wrapper>> (&options.key_creation),         "Key creation time in UTC (YYYY-MM-DD HH:MM:SS)")
             ("debug-dump-secret-and-public-keys", po::bool_switch(&options.debug_dump_keys),      "Dump generated key parameters; WARNING: sensitive data!");
 
@@ -295,8 +295,15 @@ namespace {
         options.user_email          .ensure_prompt("Your email address");
         options.signature_creation  .ensure_prompt("Signature creation time in UTC (YYYY-MM-DD HH:MM:SS)");
         options.signature_expiration.ensure_prompt("Signature expiration time in UTC (YYYY-MM-DD HH:MM:SS)");
-        options.kdf_context         .ensure_prompt("Key derivation context");
+        options.kdf_context         .ensure_prompt("Key derivation context (8 bytes)");
         options.key_creation        .ensure_prompt("Key creation time in UTC (YYYY-MM-DD HH:MM:SS)");
+
+        // check that the KDF context is the right size
+        if (options.kdf_context->size() != 8) {
+            // alert the user to the invalid input and exit
+            std::cerr << "Key derivation context should be exactly 8 bytes, but is " << options.kdf_context->size() << " bytes" << std::endl;
+            exit(1);
+        }
 
         // return the created options struct
         return options;
