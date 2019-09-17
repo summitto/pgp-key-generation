@@ -21,6 +21,8 @@ parameters::eddsa::compute_keys(
     static_assert(crypto_sign_PUBLICKEYBYTES + parameters::eddsa::public_key_tag.size() == public_key_size);
     // Secret keys get their public parts stripped.
     static_assert(crypto_sign_SECRETKEYBYTES - crypto_sign_PUBLICKEYBYTES == secret_key_size);
+    // The derivations should be usable as a libsodium seed.
+    static_assert(crypto_sign_SEEDBYTES == derivation_size);
 
     // create an error checker
     error_checker<0> checker;
@@ -37,8 +39,8 @@ parameters::eddsa::compute_keys(
 
     // The encryption key is generated as an ed25519 key but need to be stored as a curve25519 key;
     // so put the ed25519 key here, then later convert it to the right place.
-    std::array<uint8_t, crypto_scalarmult_curve25519_BYTES> temp_key_public;
-    std::array<uint8_t, crypto_scalarmult_curve25519_BYTES> temp_key_secret;
+    std::array<uint8_t, crypto_sign_PUBLICKEYBYTES> temp_key_public;
+    std::array<uint8_t, crypto_sign_SECRETKEYBYTES> temp_key_secret;
 
     // Create the curve from the derived key; note that the encryption key goes into the temporary
     // buffer first.
@@ -46,6 +48,9 @@ parameters::eddsa::compute_keys(
     crypto_sign_seed_keypair(signing_key_public.data(),         signing_key_secret.data(),          signing_key_derivation.data());
     crypto_sign_seed_keypair(temp_key_public.data(),            temp_key_secret.data(),             encryption_key_derivation.data());
     crypto_sign_seed_keypair(authentication_key_public.data(),  authentication_key_secret.data(),   authentication_key_derivation.data());
+
+    static_assert(crypto_sign_ed25519_PUBLICKEYBYTES == crypto_sign_PUBLICKEYBYTES);
+    static_assert(crypto_sign_ed25519_SECRETKEYBYTES == crypto_sign_SECRETKEYBYTES);
 
     // Convert the encryption key to the right format.
     checker << crypto_sign_ed25519_pk_to_curve25519(encryption_key_public.data(),    temp_key_public.data());
