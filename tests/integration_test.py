@@ -11,7 +11,7 @@ from packet_parser import *
 
 # Specification for an execution of the program
 @dataclass
-class AppInput(Generate):
+class AppInput:
     key_type: str
     name: str
     email: str
@@ -19,10 +19,11 @@ class AppInput(Generate):
     expiration: str
     dice: str
     key: str
+    key_creation: str
 
     # Generate an input specification given a key type
     def generate(key_type):
-        values = GenerateInput.generate()
+        values = generateInput()
         return AppInput(
             key_type,
             values["name"],
@@ -30,7 +31,8 @@ class AppInput(Generate):
             values["creation"],
             values["expiration"],
             values["dice"],
-            values["key"]
+            values["key"],
+            values["key_creation"]
         )
 
 
@@ -107,7 +109,9 @@ class KeygenApplication(Application):
             "-n", appinput.name,
             "-e", appinput.email,
             "-s", appinput.creation,
-            "-x", appinput.expiration
+            "-x", appinput.expiration,
+            "-k", "derivation-context",
+            "-c", appinput.key_creation
         ]
         super().__init__(exec_name, args)
 
