@@ -9,6 +9,15 @@ from generate import *
 from packet_parser import *
 
 
+class KeyFlag:
+    Certification            = 0x01
+    Signing                  = 0x02
+    EncryptionCommunications = 0x04
+    EncryptionStorage        = 0x08
+    SplitKey                 = 0x10
+    Authentication           = 0x20
+    GroupKey                 = 0x80
+
 # Specification for an execution of the program
 @dataclass
 class AppInput:
@@ -102,7 +111,9 @@ class Application:
             return "\n".join(line for line in lines if self._line_filter(line))
 
 class KeygenApplication(Application):
-    def __init__(self, exec_name, keyfile, appinput):
+    # kwargs:
+    # - debug_dump_keys: if True, pass --debug-dump-keys to the keygen application.
+    def __init__(self, exec_name, keyfile, appinput, **kwargs):
         args = [
             "-o", keyfile,
             "-t", appinput.key_type,
@@ -113,6 +124,10 @@ class KeygenApplication(Application):
             "-k", "derivation-context",
             "-c", appinput.key_creation
         ]
+
+        if kwargs.get("debug_dump_keys", False):
+            args += ["--debug-dump-keys"]
+
         super().__init__(exec_name, args)
 
 class GPGApplication(Application):
@@ -183,7 +198,8 @@ def import_gpg_packet(filename, **kwargs):
 
     if not all(l):
         # for debugging
-        print(l)
+        print("OUTPUT FROM GPG WHEN IMPORTING:")
+        print(output)
 
     return all(l)
 
@@ -224,7 +240,7 @@ def decrypt_file(encrypted_fname, output_fname, **kwargs):
 def generate_initial_key(workdir, exec_name, appinput):
     keyfile = os.path.join(workdir, safe_temporary_name())
 
-    with KeygenApplication(exec_name, keyfile, appinput) as app:
+    with KeygenApplication(exec_name, keyfile, appinput, debug_dump_keys = True) as app:
         app.write_line("")  # generate a new key, no recovery seed
         app.write_line(appinput.dice)
         app.write_line(appinput.key)
@@ -237,7 +253,11 @@ def generate_initial_key(workdir, exec_name, appinput):
         seed_start = text.find(":", idx1) + 2
         seed = text[seed_start:].split("\n")[0]
 
-        return keyfile, seed
+        param_lines = re.search(r"COMPUTED KEYS:\n(- [^\n]*\n)*", text)[0].split("\n")[1:-1]
+        param_dict = {keytype: params
+                      for [keytype, params] in [line[2:].split(": ") for line in param_lines]}
+
+        return keyfile, seed, param_dict
 
 # Use the specification to regenerate the previous key from its recovery seed
 def regenerate_key(workdir, exec_name, appinput, rec_seed):
@@ -248,6 +268,86 @@ def regenerate_key(workdir, exec_name, appinput, rec_seed):
         app.write_line(appinput.key)  # with this symmetric key
 
         return keyfile
+
+def check_params_against_parsed(params, parsed):
+    def sig_key_flags(sig):
+        if not isinstance(sig, SignaturePacket):
+            print("Expected signature packet after secret subkey packet")
+            return None
+        subs = [pkt for pkt in sig.hashed_subs if isinstance(pkt, KeyFlagsSubpacket)]
+        if len(subs) != 1:
+            print("Expected key flags subpacket in signature packet")
+            return None
+        return subs[0].flags
+
+    def perform_check(pub_param, sec_param, pkt):
+        def normalise_value(value):
+            return re.sub(r"^0*", "", value.lower())
+
+        def check_in_list(typ, idx, value):
+            value = normalise_value(value)
+            gpgvalue = normalise_value(
+                            [data for (t, i, data) in pkt.keys if (t, i) == (typ, idx)][0])
+            if gpgvalue != value:
+                print("In checking debug-printed parameters against GPG parsed values:")
+                print("Tag {} has value:".format(typ, idx))
+                print(gpgvalue)
+                print("But should have had value:")
+                print(value)
+            return gpgvalue == value
+
+        def key_value_parse(s):
+            return {var: value
+                    for [var, value] in [part.split("=") for part in s.split(" ")]}
+
+        if pkt.algo == 1:  # RSA
+            pub_param_dict = key_value_parse(pub_param)
+            sec_param_dict = key_value_parse(sec_param)
+            return check_in_list("pkey", 0, pub_param_dict["n"]) and \
+                    check_in_list("pkey", 1, pub_param_dict["e"]) and \
+                    check_in_list("skey", 2, sec_param_dict["d"]) and \
+                    check_in_list("skey", 3, sec_param_dict["p"]) and \
+                    check_in_list("skey", 4, sec_param_dict["q"]) and \
+                    check_in_list("skey", 5, sec_param_dict["u"])
+        elif pkt.algo == 18:  # ECDH
+            return check_in_list("pkey", 1, pub_param) and check_in_list("skey", 3, sec_param)
+        elif pkt.algo == 19:  # ECDSA
+            return check_in_list("pkey", 1, pub_param) and check_in_list("skey", 2, sec_param)
+        elif pkt.algo == 22:  # EDDSA
+            return check_in_list("pkey", 1, pub_param) and check_in_list("skey", 2, sec_param)
+        else:
+            print("Unsupported key algorithm {} in secret key packet".format(pkt.algo))
+            return False
+
+    seckeys = {"main": parsed[0]}
+
+    # start at 1 to skip the main key
+    i = 1
+    while i < len(parsed):
+        if isinstance(parsed[i], SecretKeyPacket):
+            flags = sig_key_flags(parsed[i + 1])
+            if flags is None:
+                return False
+            elif flags == KeyFlag.Certification | KeyFlag.Signing:
+                seckeys["signing"] = parsed[i]
+            elif flags == KeyFlag.EncryptionCommunications | KeyFlag.EncryptionStorage:
+                seckeys["encryption"] = parsed[i]
+            elif flags == KeyFlag.Authentication:
+                seckeys["authentication"] = parsed[i]
+            i += 2
+        else:
+            i += 1
+
+    kinds = ["main", "signing", "encryption", "authentication"]
+    if not all(k in seckeys for k in kinds):
+        print("Expected main, signing, encryption and authentication keys in packet listing")
+        return False
+
+    for kind in kinds:
+        if not perform_check(params[kind + " public"], params[kind + " secret"], seckeys[kind]):
+            return False
+
+    return True
 
 
 def report_error(appinput, keyfile):
@@ -262,7 +362,7 @@ def run_test(exec_name, key_class):
         appinput = AppInput.generate(key_class)
 
         # --- Generate the key, and regenerate the key
-        keyfile1, rec_seed = generate_initial_key(tempdir, exec_name, appinput)
+        keyfile1, rec_seed, key_param_dict = generate_initial_key(tempdir, exec_name, appinput)
         keyfile2 = regenerate_key(tempdir, exec_name, appinput, rec_seed)
 
         # --- Parse the keys using GPG and check equivalence
@@ -272,6 +372,13 @@ def run_test(exec_name, key_class):
         # of signatures are not included in the comparison.
         if parsed1 != parsed2:
             print("Key recovery didn't work")
+            report_error(appinput, keyfile1)
+            return False
+
+        # --- Check whether the PGP packet library correctly passed on the
+        #     parameters to GPG
+        if not check_params_against_parsed(key_param_dict, parsed1):
+            print("Generated parameters are not equal to those imported into GPG")
             report_error(appinput, keyfile1)
             return False
 
