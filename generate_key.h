@@ -2,6 +2,7 @@
 
 #include <boost/utility/string_view.hpp>
 #include <pgp-packet/packet.h>
+#include "derived_key.h"
 #include "parameters.h"
 #include "master_key.h"
 #include <ctime>
@@ -97,7 +98,7 @@ concept bool KeyParameters() {
  *  @param  context     The context to use for deriving the keys
  */
 template <KeyParameters params_t>
-std::vector<pgp::packet> generate_key(const master_key &master, std::string user, uint32_t creation, uint32_t signature, uint32_t expiration, boost::string_view context)
+std::vector<pgp::packet> generate_key(const master_key &master, std::string user, uint32_t creation, uint32_t signature, uint32_t expiration, boost::string_view context, bool debug_dump_keys)
 {
     // pgp likes the expiration timestamp to not be a timestamp (but still call it that)
     // but instead define it as the number of seconds since the key creation timestamp
@@ -118,6 +119,11 @@ std::vector<pgp::packet> generate_key(const master_key &master, std::string user
             authentication_key_derivation
         )
     };
+
+    if (debug_dump_keys) {
+        std::cout << "COMPUTED KEYS:" << std::endl;
+        params_t::dump_computed_keys(std::cout, keys);
+    }
 
     // the vector of packets to generate
     std::vector<pgp::packet> packets;

@@ -26,6 +26,8 @@ namespace parameters {
             const std::array<uint8_t, derivation_size> &authentication_key_derivation
         );
 
+        static void dump_computed_keys(std::ostream &os, const computed_keys<ecdsa::public_key_t, ecdsa::secret_key_t> &keys);
+
         static pgp::packet secret_key_packet(key_type type, uint32_t creation, const public_key_t &public_key, const secret_key_t &secret_key);
 
         static pgp::packet user_id_signature_packet(const pgp::user_id &user_id, const pgp::secret_key &main_key, uint32_t signature_creation, uint32_t signature_expiration);

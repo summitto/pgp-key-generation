@@ -133,3 +133,12 @@ pgp::packet parameters::eddsa::subkey_signature_packet(key_type type, const pgp:
 {
     return packet_utils::subkey_signature(type, subkey, main_key, signature_creation, signature_expiration);
 }
+
+void parameters::eddsa::dump_computed_keys(std::ostream &os, const computed_keys<eddsa::public_key_t, eddsa::secret_key_t> &keys)
+{
+    keys.dump_to_stream(
+        os,
+        array_key_dumper<eddsa::public_key_size>,
+        array_key_dumper<eddsa::secret_key_size>
+    );
+}
