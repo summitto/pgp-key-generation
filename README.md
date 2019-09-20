@@ -29,7 +29,7 @@ the `dataclasses` library) and GnuPG to be installed.
     -s "2011-01-01 01:01:01" -x "2099-09-09 09:09:09" -k test -c "2011-01-01
     01:01:01"
 
-- The program will eiter generate a new encrypted seed using dice input, or you
+- The program will either generate a new encrypted seed using dice input, or you
   can use an existing encrypted seed to generate your key. If you generate a
   new seed, store it in a secure place  
 - import the generated key file into gpg with "gpg --import file"
