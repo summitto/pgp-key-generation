@@ -6,13 +6,20 @@ This repository provides the source for a utility used for creating PGP keys usi
 [libsodium](https://download.libsodium.org/doc/ "Introduction - Libsodium documentation")
 (for ed- and curve25519 keys) or
 [Crypto++](https://www.cryptopp.com/ "Crypto++ Library | Free C++ Class Library of Cryptographic Schemes")
-(for ec25519 and RSA keys). The keys generated can be deterministic.
+(for ec25519 and RSA keys).
+
+Generating keys will also output a 64-character hexadecimal seed value, which, in
+combination with the chosen passphrase, can be used to recreate the exact same key.
+
+This means that keeping the seed value and passphrase in a safe location can protect
+you against losing keys, since they can always be generated again.
 
 ## Dependencies
 
 The source code can be built using only the dependencies of the
-pgp-packet-library. The integration testing script, which can be run using
-`make test` in the build folder, additionally requires Python 3.7 (or 3.6 with
+[pgp-packet-library](https://github.com/summitto/pgp-packet-library).
+The integration testing script, which can be run using `make test` in
+the build folder, additionally requires Python 3.7 (or 3.6 with
 the `dataclasses` library) and GnuPG to be installed.
 
 ## Generating new keys
