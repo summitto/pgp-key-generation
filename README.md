@@ -2,8 +2,11 @@
 
 # PGP key generation
 
-This repository provides the source for a utility used for creating
-PGP keys using libsodium. The keys generated can be deterministic.
+This repository provides the source for a utility used for creating PGP keys using
+[libsodium](https://download.libsodium.org/doc/ "Introduction - Libsodium documentation")
+(for ed- and curve25519 keys) or
+[Crypto++](https://www.cryptopp.com/ "Crypto++ Library | Free C++ Class Library of Cryptographic Schemes")
+(for ec25519 and RSA keys). The keys generated can be deterministic.
 
 ## Dependencies
 
