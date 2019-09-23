@@ -332,7 +332,11 @@ int main(int argc, const char **argv)
 
     static_assert(crypto_kdf_KEYBYTES == crypto_generichash_BYTES);
 
-    // did we get a recovery seed?
+    // At this point we have two options. If a recovery seed was entered,
+    // we will decrypt the seed and use it as our master key.
+    //
+    // If no seed was entered, we need to generate a new key, and of course
+    // ask the user for a passphrase to encrypt it.
     if (!recovery_seed.empty()) {
         // parse it into the master key
         master = convert_string_to_numbers<crypto_kdf_KEYBYTES>(recovery_seed);
