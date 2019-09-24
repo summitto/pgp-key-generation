@@ -442,7 +442,7 @@ def main():
         print("Usage: {} <generate_derived_key executable>", file = sys.stderr)
         sys.exit(1)
 
-    num_tests = 20
+    num_tests = 200
     key_classes = ["eddsa", "ecdsa", "rsa2048"]
 
     for key_class in key_classes:
