@@ -352,8 +352,9 @@ def check_params_against_parsed(params, parsed):
     return True
 
 
-def report_error(appinput, keyfile):
+def report_error(appinput, keyfile, rec_seed):
     print(appinput)
+    print("Recovery seed: {}".format(rec_seed))
     fname = "integration_test_keyfile_on_error_{}".format(int(time.time()))
     shutil.copy(keyfile, fname)
     print("Generated key file copied to '{}'".format(fname))
@@ -374,14 +375,14 @@ def run_test(exec_name, key_class):
         # of signatures are not included in the comparison.
         if parsed1 != parsed2:
             print("Key recovery didn't work")
-            report_error(appinput, keyfile1)
+            report_error(appinput, keyfile1, rec_seed)
             return False
 
         # --- Check whether the PGP packet library correctly passed on the
         #     parameters to GPG
         if not check_params_against_parsed(key_param_dict, parsed1):
             print("Generated parameters are not equal to those imported into GPG")
-            report_error(appinput, keyfile1)
+            report_error(appinput, keyfile1, rec_seed)
             return False
 
         # --- Extract the main key id
@@ -397,7 +398,7 @@ def run_test(exec_name, key_class):
                     print("Signature creation timestamp is incorrect")
                     print(packet.created)
                     print(creation_stamp)
-                    report_error(appinput, keyfile1)
+                    report_error(appinput, keyfile1, rec_seed)
                     return False
 
         # --- Now we wish to perform more extensive testing on the
@@ -407,7 +408,7 @@ def run_test(exec_name, key_class):
             # --- Test importing a key
             if not import_gpg_packet(keyfile1, gpg_homedir = gpg_homedir):
                 print("Key import didn't work")
-                report_error(appinput, keyfile1)
+                report_error(appinput, keyfile1, rec_seed)
                 return False
 
             # --- Test signing and encrypting data
@@ -415,20 +416,20 @@ def run_test(exec_name, key_class):
             output_fname = os.path.join(tempdir, safe_temporary_name())
             if not sign_encrypt_file(keyid, message_fname, output_fname, gpg_homedir = gpg_homedir):
                 print("Sign+encrypt didn't work")
-                report_error(appinput, keyfile1)
+                report_error(appinput, keyfile1, rec_seed)
                 return False
 
             # --- Test decrypting (and verifying) the file created above
             decrypt_fname = os.path.join(tempdir, safe_temporary_name())
             if not decrypt_file(output_fname, decrypt_fname, gpg_homedir = gpg_homedir):
                 print("Decrypt didn't work")
-                report_error(appinput, keyfile1)
+                report_error(appinput, keyfile1, rec_seed)
                 return False
 
             # --- Check whether decryption yielded the original file again
             if not filecmp.cmp(message_fname, decrypt_fname, shallow = False):
                 print("Decryption produced a different file than was encrypted")
-                report_error(appinput, keyfile1)
+                report_error(appinput, keyfile1, rec_seed)
                 return False
 
     return True
