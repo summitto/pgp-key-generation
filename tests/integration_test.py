@@ -217,6 +217,17 @@ def import_gpg_packet(filename, **kwargs):
     return all(l)
 
 # Passes all keyword arguments on to GPGApplication.
+# Lists the fingerprints of all secret and public keys known to GPG with the
+# given arguments.
+def list_fingerprints(**kwargs):
+    with GPGApplication(["--list-secret-keys", "--with-colons"], ignore_stderr = True, **kwargs) as app:
+        output = [line.split(":") for line in app.read_all().split("\n")]
+
+    # Return the last 16 bytes (the key id), because that's what the rest of
+    # this script knows about.
+    return [line[9][-16:] for line in output if line[0] == "fpr"]
+
+# Passes all keyword arguments on to GPGApplication.
 def sign_encrypt_file(keyid, message_fname, output_fname, **kwargs):
     # Remove the output file if it already exists
     if os.access(output_fname, os.F_OK):
@@ -400,6 +411,8 @@ def run_test(exec_name, key_class):
         assert isinstance(parsed1[0], SecretKeyPacket)
         keyid = parsed1[0].keyid
 
+        all_keyids = [packet.keyid for packet in parsed1 if isinstance(packet, SecretKeyPacket)]
+
         # --- Check sanity of the signature creation timestamp
         creation_stamp = date_to_unix(appinput.creation)
 
@@ -421,6 +434,11 @@ def run_test(exec_name, key_class):
                 print("Key import didn't work")
                 report_error(appinput, keyfile1, rec_seed)
                 return False
+
+            fprs_in_listing = list_fingerprints(gpg_homedir = gpg_homedir)
+            while any(k not in fprs_in_listing for k in all_keyids):
+                print("Some keyid in {} not found in gpg listing yet!".format(all_keyids))
+                fprs_in_listing = list_fingerprints(gpg_homedir = gpg_homedir)
 
             # --- Test signing and encrypting data
             message_fname = make_random_file(tempdir, 1000)
