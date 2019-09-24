@@ -21,7 +21,7 @@ the generated seed value must be protected by a passphrase.
 
 The security of a key depends in large part on the entropy used in its
 generation. To guard against possible exploits that might exist in the
-random number generator of the system the tool is ran on, we also hash
+random number generator of the system the tool is run on, we also hash
 the value of 100 dice rolls into the random input generated, using the
 dice rolls as a salt for a hash function. The result of this operation
 then becomes the seed value for generating the other keys.
