@@ -59,7 +59,7 @@ def make_random_file(workdir, size):
     return fname
 
 # Calls 'func' until it either returns a truthy value, or it has been called
-# 'ntimes' times, whichever is first; sleeps 2 seconds between calls
+# 'ntimes' times, whichever is first.
 def retry_until_truthy(ntimes, func, description = ""):
     i = 0
     while True:
@@ -68,7 +68,6 @@ def retry_until_truthy(ntimes, func, description = ""):
         if ret or i >= ntimes:
             return ret
         print("retry_until_truthy({}): Retrying ({}/{}) on failure".format(description, i, ntimes), file = sys.stderr)
-        time.sleep(2)
 
 
 # Context manager for interacting with a process line-wise
@@ -433,7 +432,8 @@ def run_test(exec_name, key_class):
 
             # --- Test decrypting (and verifying) the file created above
             decrypt_fname = os.path.join(tempdir, safe_temporary_name())
-            if not retry_until_truthy(2, lambda: decrypt_file(output_fname, decrypt_fname, gpg_homedir = gpg_homedir), "decrypt_file"):
+            if not decrypt_file(output_fname, decrypt_fname, gpg_homedir = gpg_homedir):
+            #  if not retry_until_truthy(2, lambda: decrypt_file(output_fname, decrypt_fname, gpg_homedir = gpg_homedir), "decrypt_file"):
                 print("Decrypt didn't work")
                 report_error(appinput, keyfile1, rec_seed)
                 return False
