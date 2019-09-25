@@ -26,8 +26,7 @@ the `dataclasses` library) and GnuPG to be installed.
 
 - If you have a new smartcard, change the user and admin pin first. See:
   https://www.gnupg.org/howtos/card-howto/en/ch03s02.html
-- install `GnuPG` and this utility on a secure, offline computer. See:
-  https://github.com/summitto/raspbian_setup
+- install `GnuPG` and this utility on a secure, offline computer. 
 - install `GnuPG` on your main device. Optionally, `scdaemon`, `libccid` and
   `pcscd` may need to be installed.
 - run key generation utility, for example using:
