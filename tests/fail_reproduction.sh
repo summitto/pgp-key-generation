@@ -124,10 +124,12 @@ for i in $(seq 1 200); do
     echo
     mkdir gpg-homedir
     chmod go-rwx gpg-homedir
+    gpg-agent --homedir gpg-homedir --daemon || { echo >&2 "gpg-agent startup failed!"; exit 1; }
     gpg --homedir gpg-homedir --import failing_key || yep_test_failed
     gpg --homedir gpg-homedir --sign --encrypt --trusted-key C99FD7CC81410B9F \
             --local-user C99FD7CC81410B9F -r C99FD7CC81410B9F \
             -o out <(echo text) || yep_test_failed
     gpg --homedir gpg-homedir --decrypt -o decr out || yep_test_failed
+    gpgconf --homedir gpg-homedir --kill gpg-agent || { echo >&2 "killing gpg-agent failed!"; exit 1; }
     rm -rf gpg-homedir decr out
 done >out.log 2>&1
