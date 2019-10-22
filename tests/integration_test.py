@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import dataclasses, filecmp, re, os, random, subprocess, shutil, sys, tempfile, time
+import dataclasses, filecmp, re, os, random, shlex, shutil, subprocess, sys, tempfile, time
 from dataclasses import dataclass
 from typing import List, Tuple
 
@@ -96,6 +96,8 @@ class Application:
             self._proc.wait(timeout = 1)
         except subprocess.TimeoutExpired:
             self._proc.kill()
+            print("Application: KILLED PROCESS in __exit__ due to timeout expiration", file = sys.stderr)
+            print("  args: {}".format(self._args), file = sys.stderr)
 
     def write_data(self, data):
         self._proc.stdin.write(data)
@@ -379,6 +381,13 @@ def check_params_against_parsed(params, parsed):
 
 def report_error(appinput, keyfile, rec_seed):
     print(appinput)
+    print("Command line: -t {} -n {} -e {} -s {} -x {} -k {} -c {}".format(
+        *(shlex.quote(x) for x in
+            [appinput.key_type, appinput.name, appinput.email, appinput.creation,
+            appinput.expiration, appinput.context, appinput.key_creation])
+    ))
+    print("Dice: {}".format(appinput.dice))
+    print("Encryption key: {}".format(appinput.key))
     print("Recovery seed: {}".format(rec_seed))
     fname = "integration_test_keyfile_on_error_{}".format(int(time.time()))
     shutil.copy(keyfile, fname)
