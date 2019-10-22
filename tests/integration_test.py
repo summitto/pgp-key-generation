@@ -462,8 +462,10 @@ def run_test(exec_name, key_class):
 
             # --- Test decrypting (and verifying) the file created above
             decrypt_fname = os.path.join(tempdir, safe_temporary_name())
-            if not decrypt_file(output_fname, decrypt_fname, gpg_homedir = gpg_homedir):
-            #  if not retry_until_truthy(2, lambda: decrypt_file(output_fname, decrypt_fname, gpg_homedir = gpg_homedir), "decrypt_file"):
+            # This retrying is sometimes necessary; I suspect that it is because the GPG agent
+            # doesn't get up soon enough, so the private key material is not available. No proof
+            # though.
+            if not retry_until_truthy(2, lambda: decrypt_file(output_fname, decrypt_fname, gpg_homedir = gpg_homedir), "decrypt_file"):
                 print("Decrypt didn't work")
                 report_error(appinput, keyfile1, rec_seed)
                 return False
