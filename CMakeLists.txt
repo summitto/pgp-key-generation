@@ -46,3 +46,13 @@ if (CMAKE_COMPILER_IS_GNUCC AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 8.2)
 endif()
 
 add_subdirectory(tests)
+
+# Custom target for clang-tidy
+find_program(clang_tidy_path NAMES clang-tidy)
+if (clang_tidy_path)
+    add_custom_target(tidy
+        COMMAND ${clang_tidy_path} -p="${CMAKE_CURRENT_BINARY_DIR}" ${sources-list}
+        COMMENT "Running clang-tidy"
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    )
+endif()
