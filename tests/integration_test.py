@@ -291,7 +291,10 @@ def regenerate_key(workdir, exec_name, appinput, rec_seed):
         app.write_line(rec_seed)  # regenerate a previous key from a recovery seed
         app.write_line(appinput.key)  # with this symmetric key
 
-        return keyfile
+        # Ignore the output
+        app.read_all()
+
+    return keyfile
 
 def check_params_against_parsed(params, parsed):
     def sig_key_flags(sig):
