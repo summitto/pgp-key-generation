@@ -181,11 +181,11 @@ class GPGApplication(Application):
         return self
 
     def __exit__(self, *args):
+        super().__exit__(*args)
+
         # If we created a temporary directory for the GPG homedir in __init__, clean it up here
         if self._gpg_homedir is not None:
             self._gpg_homedir.cleanup()
-
-        super().__exit__(*args)
 
 def parse_pgp_packet(filename):
     # Parse the packet stream using gpg
