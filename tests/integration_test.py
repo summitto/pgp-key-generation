@@ -487,7 +487,7 @@ def main():
         sys.exit(1)
 
     num_tests = 200
-    key_classes = ["eddsa", "ecdsa", "rsa2048"]
+    key_classes = ["eddsa", "ecdsa", "rsa2048", "rsa4096", "rsa8192"]
 
     for key_class in key_classes:
         print("Running {} random tests for {}...".format(num_tests, key_class))
