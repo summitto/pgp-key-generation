@@ -24,7 +24,7 @@ std::array<uint8_t, width> convert_string_to_numbers(const std::string &input)
     // iterate over the entire string
     for (size_t i = 0; i < width; ++i) {
         // the value to parse into
-        int value;
+        unsigned int value;
 
         // read the value from the string
         std::sscanf(input.data() + 2*i, "%02x", &value);

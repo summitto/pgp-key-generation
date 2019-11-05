@@ -71,19 +71,6 @@ pgp::packet parameters::rsa<modulus_size>::secret_key_packet(key_type type, uint
 
         case key_type::signing:
         case key_type::authentication:
-            return pgp::packet{
-                pgp::in_place_type_t<pgp::secret_subkey>{},                 // we are building a secret subkey
-                creation,                                                   // created at
-                pgp::key_algorithm::rsa_encrypt_or_sign,                    // using the rsa key algorithm
-                pgp::in_place_type_t<pgp::secret_key::rsa_key_t>{},         // key type
-                std::forward_as_tuple(                                      // public arguments
-                    public_key.n, public_key.e                              // copy in the public key parameters
-                ),
-                std::forward_as_tuple(                                      // secret arguments
-                    secret_key.d, secret_key.p, secret_key.q, secret_key.u  // copy in the secret key parameters
-                )
-            };
-
         case key_type::encryption:
             return pgp::packet{
                 pgp::in_place_type_t<pgp::secret_subkey>{},                 // we are building a secret subkey
