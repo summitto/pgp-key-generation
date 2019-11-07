@@ -89,3 +89,10 @@ page](https://github.com/Nitrokey/nitrokey-start-firmware/releases).
 
 Be aware that flashing firmware will erase keys currently residing on the
 device.
+
+## Static analysis
+
+The project can be analyzed with
+[Cppcheck](http://cppcheck.sourceforge.net/) by using the `cppcheck`
+target. This target is available only if the `cppcheck` binary can be
+found.
