@@ -1,0 +1,8 @@
+// Skip the Google test libraries since they're full of issues.
+*:*google*
+
+// passedByValue trips over constructors
+passedByValue
+
+// Assert function is not used in release mode
+unusedFunction:assert_release.cpp

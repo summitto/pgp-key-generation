@@ -7,6 +7,8 @@ project(pgp-test
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 find_package(pgp-packet REQUIRED)
 find_package(Boost      REQUIRED
     COMPONENTS program_options)
@@ -54,5 +56,20 @@ if (clang_tidy_path)
         COMMAND ${clang_tidy_path} -p="${CMAKE_CURRENT_BINARY_DIR}" ${sources-list}
         COMMENT "Running clang-tidy"
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    )
+endif()
+
+# Custom target for cppcheck.
+find_program(cppcheck_path NAMES cppcheck)
+if (cppcheck_path)
+    add_custom_target(cppcheck
+        COMMAND "${cppcheck_path}"
+        "--project=${CMAKE_BINARY_DIR}/compile_commands.json"
+        "--quiet"
+        "--error-exitcode=1"
+        "--enable=warning,portability,unusedFunction,performance"
+        "--suppressions-list=${CMAKE_SOURCE_DIR}/CppCheckSuppressions.txt"
+        "-rp=${CMAKE_SOURCE_DIR}"
+        COMMENT "Running cppcheck"
     )
 endif()
