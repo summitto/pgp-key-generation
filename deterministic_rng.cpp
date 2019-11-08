@@ -59,13 +59,13 @@ void deterministic_rng::generate_block_multiple(uint8_t *output, size_t size)
  */
 void deterministic_rng::GenerateBlock(CryptoPP::byte *output, size_t size)
 {
-    GenerateBlock(gsl::span(output, size));
+    GenerateBlock(pgp::span(output, size));
 }
 
 /**
  *  Generate random bytes, as documented in the base class.
  */
-void deterministic_rng::GenerateBlock(gsl::span<CryptoPP::byte> output)
+void deterministic_rng::GenerateBlock(pgp::span<CryptoPP::byte> output)
 {
     // Implementation: we want to encrypt some zero bytes using the seed as key
     // and with a zero nonce; and each time we get a request for more bytes, we
