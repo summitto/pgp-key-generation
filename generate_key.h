@@ -4,6 +4,7 @@
 #include <pgp-packet/packet.h>
 #include "parameters.h"
 #include "master_key.h"
+#include "derived_key.h"
 #include <ctime>
 
 

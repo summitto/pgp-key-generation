@@ -28,12 +28,12 @@
  */
 std::time_t time_utils::tm_to_utc_unix_timestamp(const std::tm &time)
 {
-    if (time.tm_sec  <  0 || time.tm_sec  >= 61) throw std::out_of_range("Seconds out of range");
-    if (time.tm_min  <  0 || time.tm_min  >= 60) throw std::out_of_range("Minutes out of range");
-    if (time.tm_hour <  0 || time.tm_hour >= 24) throw std::out_of_range("Hours out of range");
-    if (time.tm_mday <  1 || time.tm_mday >= 32) throw std::out_of_range("Day-of-month out of range");
-    if (time.tm_mon  <  0 || time.tm_mon  >= 12) throw std::out_of_range("Month out of range");
-    if (time.tm_year < 70                      ) throw std::out_of_range("Year out of range");
+    if (time.tm_sec  <  0 || time.tm_sec  >= 61) { throw std::out_of_range{ "Seconds out of range"        }; }
+    if (time.tm_min  <  0 || time.tm_min  >= 60) { throw std::out_of_range{ "Minutes out of range"        }; }
+    if (time.tm_hour <  0 || time.tm_hour >= 24) { throw std::out_of_range{ "Hours out of range"          }; }
+    if (time.tm_mday <  1 || time.tm_mday >= 32) { throw std::out_of_range{ "Day-of-month out of range"   }; }
+    if (time.tm_mon  <  0 || time.tm_mon  >= 12) { throw std::out_of_range{ "Month out of range"          }; }
+    if (time.tm_year < 70                      ) { throw std::out_of_range{ "Year out of range"           }; }
 
     std::time_t second_in_day = 3600 * time.tm_hour + 60 * time.tm_min + time.tm_sec;
 

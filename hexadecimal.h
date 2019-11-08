@@ -1,6 +1,10 @@
 #pragma once
 
-#include <cstdlib>
+#include <array>
+#include <charconv>
+#include <cstdint>
+#include <string>
+#include <system_error>
 
 
 /**
@@ -18,19 +22,32 @@ std::array<uint8_t, width> convert_string_to_numbers(const std::string &input)
     // abort on failure
     if (input.size() != width * 2) {
         // we cannot read the data
-        return result;
+        throw std::out_of_range{ "Input size incorrect" };
     }
 
+    // iterator to write the result
+    auto iter = result.begin();
+
     // iterate over the entire string
-    for (size_t i = 0; i < width; ++i) {
+    for (std::string_view data{ input }; !data.empty(); data.remove_prefix(2)) {
         // the value to parse into
-        unsigned int value;
+        unsigned int value{};
+
+        // beginning and end of range
+        auto begin  = data.data();
+        auto end    = std::next(begin, 2);
 
         // read the value from the string
-        std::sscanf(input.data() + 2*i, "%02x", &value);
+        auto [last, ec] = std::from_chars(begin, end, value, 16);
+
+        // the last parsed byte should be the one at "end"
+        if (last != end) {
+            throw std::range_error{ std::make_error_code(ec).message() };
+        }
 
         // set it in the array
-        result[i] = value;
+        *iter = value;
+        ++iter;
     }
 
     // return the result
