@@ -12,6 +12,9 @@
  *  characters to an array of numbers
  *
  *  @param  input   The input string to convert
+ *
+ *  @throws std::out_of_range   if the input size is not correct
+ *  @throws std::range_error    if the input cannot be parsed properly
  */
 template <size_t width>
 std::array<uint8_t, width> convert_string_to_numbers(const std::string &input)
