@@ -1,3 +1,4 @@
+#include <array>
 #include <stdexcept>
 #include <ctime>
 
@@ -44,7 +45,7 @@ namespace time_utils {
      */
     constexpr int days_in_month(int year, int month) noexcept
     {
-        constexpr const int days_in_month[12] = {
+        constexpr const std::array<int, 12> days_in_month = {
             31, -1, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31
         };
 
@@ -91,7 +92,7 @@ namespace time_utils {
     constexpr int days_in_year_before_month(int year, int month) noexcept
     {
         // The number of days before some month, assuming it is NOT a leap year.
-        constexpr const int days_before_nonleap[12] = {
+        constexpr const std::array<int, 12> days_before_nonleap = {
             0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334
         };
 

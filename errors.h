@@ -1,5 +1,8 @@
 #pragma once
 
+#include <stdexcept>
+#include <string>
+
 
 /**
  *  Error checking class

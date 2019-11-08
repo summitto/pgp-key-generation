@@ -319,126 +319,139 @@ namespace {
  */
 int main(int argc, const char **argv)
 {
-    // parse the command-line arguments
-    Options options = parse_options(argc, argv);
+    try
+    {
+        // parse the command-line arguments
+        Options options = parse_options(argc, argv);
 
-    // inform the user about the settings in the command-line arguments
-    std::cout << "Using key type " << key_class_description(*options.type) << std::endl;
-    std::cout << "Writing key to file '" << *options.output_file << "'" << std::endl;
+        // inform the user about the settings in the command-line arguments
+        std::cout << "Using key type " << key_class_description(*options.type) << std::endl;
+        std::cout << "Writing key to file '" << *options.output_file << "'" << std::endl;
 
-    // the master key for generation
-    master_key  master;
+        // the master key for generation
+        master_key  master;
 
-    // concatenate to a valid address
-    std::string user_id = *options.user_name + " <" + *options.user_email + ">";
+        // concatenate to a valid address
+        std::string user_id = *options.user_name + " <" + *options.user_email + ">";
 
-    // read the recovery seed
-    std::string recovery_seed{"invalid"};
-    while (!recovery_seed.empty() && recovery_seed.size() != crypto_kdf_KEYBYTES * 2) {
-        // don't have a valid recovery seed yet
-        std::cout << "Enter recovery seed, or press enter to generate a new key: ";
-        std::getline(std::cin, recovery_seed);
-    }
+        // read the recovery seed
+        std::string recovery_seed{"invalid"};
+        while (!recovery_seed.empty() && recovery_seed.size() != crypto_kdf_KEYBYTES * 2) {
+            // don't have a valid recovery seed yet
+            std::cout << "Enter recovery seed, or press enter to generate a new key: ";
+            std::getline(std::cin, recovery_seed);
+        }
 
-    static_assert(crypto_kdf_KEYBYTES == crypto_generichash_BYTES);
+        static_assert(crypto_kdf_KEYBYTES == crypto_generichash_BYTES);
 
-    // At this point we have two options. If a recovery seed was entered,
-    // we will decrypt the seed and use it as our master key.
-    //
-    // If no seed was entered, we need to generate a new key, and of course
-    // ask the user for a passphrase to encrypt it.
-    if (!recovery_seed.empty()) {
-        // parse it into the master key
-        master = convert_string_to_numbers<crypto_kdf_KEYBYTES>(recovery_seed);
+        // At this point we have two options. If a recovery seed was entered,
+        // we will decrypt the seed and use it as our master key.
+        //
+        // If no seed was entered, we need to generate a new key, and of course
+        // ask the user for a passphrase to encrypt it.
+        if (!recovery_seed.empty()) {
+            // parse it into the master key
+            master = convert_string_to_numbers<crypto_kdf_KEYBYTES>(recovery_seed);
 
-        // and request the password for decryption
-        master = master.encrypt_symmetric();
-    } else {
-        // the dice result
-        std::string dice_numbers;
-        std::string dice_input;
+            // and request the password for decryption
+            master = master.encrypt_symmetric();
+        } else {
+            // the dice result
+            std::string dice_numbers;
+            std::string dice_input;
 
-        // allocate space for the numbers
-        dice_numbers.reserve(128);
+            // allocate space for the numbers
+            dice_numbers.reserve(128);
 
-        // keep reading until we are done
-        while (dice_numbers.size() < 100) {
-            // generate key from dice throw
-            std::cout << "Enter dice throw result (" << (100 - dice_numbers.size()) << " remaining): ";
-            std::getline(std::cin, dice_input);
+            // keep reading until we are done
+            while (dice_numbers.size() < 100) {
+                // generate key from dice throw
+                std::cout << "Enter dice throw result (" << (100 - dice_numbers.size()) << " remaining): ";
+                std::getline(std::cin, dice_input);
 
-            // process all the rolls in the input
-            for (char roll : dice_input) {
-                // ignore whitespace and invalid data
-                if (roll <= '0' || roll > '6') {
-                    // invalid dice roll
-                    continue;
+                // process all the rolls in the input
+                for (char roll : dice_input) {
+                    // ignore whitespace and invalid data
+                    if (roll <= '0' || roll > '6') {
+                        // invalid dice roll
+                        continue;
+                    }
+
+                    // add to the dice numbers
+                    dice_numbers.push_back(roll);
                 }
-
-                // add to the dice numbers
-                dice_numbers.push_back(roll);
             }
+
+            // hash dice numbers together with random key
+            crypto_generichash(master.data(), master.size(), reinterpret_cast<const unsigned char *>( dice_numbers.data() ), dice_numbers.size(), master.data(), master.size());
         }
 
-        // hash dice numbers together with random key
-        crypto_generichash(master.data(), master.size(), reinterpret_cast<const unsigned char *>( dice_numbers.data() ), dice_numbers.size(), master.data(), master.size());
-    }
+        // convert the dates to a timestamp
+        std::time_t key_creation_timestamp          = time_utils::tm_to_utc_unix_timestamp(*options.key_creation);
+        std::time_t signature_creation_timestamp    = time_utils::tm_to_utc_unix_timestamp(*options.signature_creation);
+        std::time_t signature_expiration_timestamp  = time_utils::tm_to_utc_unix_timestamp(*options.signature_expiration);
 
-    // convert the dates to a timestamp
-    std::time_t key_creation_timestamp          = time_utils::tm_to_utc_unix_timestamp(*options.key_creation);
-    std::time_t signature_creation_timestamp    = time_utils::tm_to_utc_unix_timestamp(*options.signature_creation);
-    std::time_t signature_expiration_timestamp  = time_utils::tm_to_utc_unix_timestamp(*options.signature_expiration);
+        // create an error checker
+        error_checker<0> checker;
 
-    // create an error checker
-    error_checker<0> checker;
+        // initialize libsodium
+        checker << sodium_init();
 
-    // initialize libsodium
-    checker << sodium_init();
-
-    // select the function with which to generate the packets
-    std::function<std::vector<pgp::packet>(const master_key&, std::string, uint32_t, uint32_t, uint32_t, boost::string_view, bool)> generation_function;
-    switch (*options.type) {
-        case key_class::eddsa: generation_function = generate_key<parameters::eddsa>; break;
-        case key_class::ecdsa: generation_function = generate_key<parameters::ecdsa>; break;
-        case key_class::rsa2048: generation_function = generate_key<parameters::rsa<2048>>; break;
-        case key_class::rsa4096: generation_function = generate_key<parameters::rsa<4096>>; break;
-        case key_class::rsa8192: generation_function = generate_key<parameters::rsa<8192>>; break;
-    }
-
-    // generate the packets
-    auto packets = generation_function(master, std::move(user_id), key_creation_timestamp, signature_creation_timestamp, signature_expiration_timestamp, *options.kdf_context, options.debug_dump_keys);
-
-    // determine output size, create a vector for it and provide it to the encoder
-    size_t                  data_size   ( std::accumulate(packets.begin(), packets.end(), 0, [](size_t a, auto &&b) -> size_t { return a + b.size(); }) );
-    std::vector<uint8_t>    out_data    ( data_size                                                                                                     );
-    pgp::range_encoder      encoder     { out_data                                                                                                      };
-
-    // encode all the packets we just created
-    for (auto &packet : packets) {
-        packet.encode(encoder);
-    }
-
-    // write it to the requested file
-    std::ofstream{ *options.output_file }.write(reinterpret_cast<const char*>(out_data.data()), encoder.size());
-
-    // if we don't have a seed, we created a new key, so we must show the seed output
-    if (recovery_seed.empty()) {
-        // encrypt the master seed with a symmetric key
-        master = master.encrypt_symmetric();
-
-        // show the seed now
-        std::cout << "Please write down the following recovery seed: ";
-
-        // iterate over the master key
-        for (uint8_t number : master) {
-            // write it as hex
-            std::cout << std::hex << std::setfill('0') << std::setw(2) << (int)number;
+        // select the function with which to generate the packets
+        std::function<std::vector<pgp::packet>(const master_key&, std::string, uint32_t, uint32_t, uint32_t, boost::string_view, bool)> generation_function;
+        switch (*options.type) {
+            case key_class::eddsa: generation_function = generate_key<parameters::eddsa>; break;
+            case key_class::ecdsa: generation_function = generate_key<parameters::ecdsa>; break;
+            case key_class::rsa2048: generation_function = generate_key<parameters::rsa<2048>>; break;
+            case key_class::rsa4096: generation_function = generate_key<parameters::rsa<4096>>; break;
+            case key_class::rsa8192: generation_function = generate_key<parameters::rsa<8192>>; break;
         }
 
-        // end it with a newline
-        std::cout << std::endl;
-    }
+        // generate the packets
+        auto packets = generation_function(master, std::move(user_id), key_creation_timestamp, signature_creation_timestamp, signature_expiration_timestamp, *options.kdf_context, options.debug_dump_keys);
 
-    // done generating
-    return 0;
+        // determine output size, create a vector for it and provide it to the encoder
+        size_t                  data_size   ( std::accumulate(packets.begin(), packets.end(), 0, [](size_t a, auto &&b) -> size_t { return a + b.size(); }) );
+        std::vector<uint8_t>    out_data    ( data_size                                                                                                     );
+        pgp::range_encoder      encoder     { out_data                                                                                                      };
+
+        // encode all the packets we just created
+        for (auto &packet : packets) {
+            packet.encode(encoder);
+        }
+
+        // write it to the requested file
+        std::ofstream{ *options.output_file }.write(reinterpret_cast<const char*>(out_data.data()), encoder.size());
+
+        // if we don't have a seed, we created a new key, so we must show the seed output
+        if (recovery_seed.empty()) {
+            // encrypt the master seed with a symmetric key
+            master = master.encrypt_symmetric();
+
+            // show the seed now
+            std::cout << "Please write down the following recovery seed: ";
+
+            // iterate over the master key
+            for (uint8_t number : master) {
+                // write it as hex
+                std::cout << std::hex << std::setfill('0') << std::setw(2) << (int)number;
+            }
+
+            // end it with a newline
+            std::cout << std::endl;
+        }
+
+        // done generating
+        return 0;
+    }
+    catch (std::exception &e)
+    {
+        std::cerr << e.what() << std::endl;
+        return 1;
+    }
+    catch (...)
+    {
+        std::cerr << "Unknown error occured" << std::endl;
+        return 1;
+    }
 }
