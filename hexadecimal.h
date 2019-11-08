@@ -6,6 +6,12 @@
 #include <string>
 #include <system_error>
 
+#if __has_include(<charconv>)
+    #include <charconv>
+#else
+    #include <cstdlib>
+#endif
+
 
 /**
  *  Convert the given string containing hexadecimal
@@ -40,13 +46,17 @@ std::array<uint8_t, width> convert_string_to_numbers(const std::string &input)
         auto begin  = data.data();
         auto end    = std::next(begin, 2);
 
+#if __has_include(<charconv>)
         // read the value from the string
-        auto [last, ec] = std::from_chars(begin, end, value, 16);
+        auto result = std::from_chars(begin, end, value, 16);
 
         // the last parsed byte should be the one at "end"
-        if (last != end) {
-            throw std::range_error{ std::make_error_code(ec).message() };
+        if (result.ec != std::errc()) {
+            throw std::range_error{ std::make_error_code(result.ec).message() };
         }
+#else
+        std::sscanf(begin, "%02x", &value);
+#endif
 
         // set it in the array
         *iter = value;
