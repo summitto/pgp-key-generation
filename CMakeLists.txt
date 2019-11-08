@@ -26,10 +26,22 @@ set(sources-list
     time_utils.cpp
 )
 
+include(CheckCXX17SourceRuns)
+
+check_cxx17_source_runs(
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/tests/std_span_test.cpp
+    HAVE_STD_SPAN)
+
 # Target definition
 add_compile_options(-Wall -Wextra -g -O0)
 add_executable(generate_derived_key ${sources-list})
 set_property(TARGET generate_derived_key PROPERTY CXX_STANDARD 17)
+
+if(NOT HAVE_STD_SPAN)
+    message("No working std::span found, using gsl::span")
+    set(NEED_GSL 1)
+    target_compile_definitions(generate_derived_key PUBLIC USE_GSL_SPAN)
+endif()
 
 # Add pgp-packet
 target_link_libraries(generate_derived_key pgp-packet)
