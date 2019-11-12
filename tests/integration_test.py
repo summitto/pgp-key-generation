@@ -1,12 +1,24 @@
 #!/usr/bin/env python3
 
+import argparse
 import dataclasses, filecmp, re, os, random, shlex, shutil, subprocess, sys, tempfile, time
-from dataclasses import dataclass
+import datetime
 from typing import List, Tuple
-
-from date_utils import *
-from generate import *
+from generate import generateInput
 from packet_parser import *
+from dataclasses import dataclass
+
+
+# Convert a string date representation to a UNIX timestamp
+def date_to_unix(string):
+    return int(
+        # parse the string into a datetime object
+        datetime.datetime.strptime(string, "%Y-%m-%d %H:%M:%S")
+            # tell it to consider itself a UTC time
+            .replace(tzinfo=datetime.timezone.utc)
+            # obtain the timestamp
+            .timestamp()
+    )
 
 
 class KeyFlag:

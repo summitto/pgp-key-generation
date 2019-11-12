@@ -1,8 +1,6 @@
-import random
 import datetime
-
+import random
 import time
-from date_utils import *
 
 
 def generateString(minstrlen=11, maxstrlen=200):
