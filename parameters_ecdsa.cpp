@@ -113,3 +113,12 @@ pgp::packet parameters::ecdsa::subkey_signature_packet(key_type type, const pgp:
 {
     return packet_utils::subkey_signature(type, subkey, main_key, signature_creation, signature_expiration);
 }
+
+void parameters::ecdsa::dump_computed_keys(std::ostream &os, const computed_keys<ecdsa::public_key_t, ecdsa::secret_key_t> &keys)
+{
+    keys.dump_to_stream(
+        os,
+        array_key_dumper<ecdsa::public_key_size>,
+        array_key_dumper<ecdsa::secret_key_size>
+    );
+}

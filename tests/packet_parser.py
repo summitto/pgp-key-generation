@@ -39,7 +39,7 @@ class Packet:
 @dataclass
 class SecretKeyPacket(Packet):
     version: int
-    algo: str
+    algo: int
     created: int
     expires: int
     keys: List[Tuple[str, int, str]]
@@ -124,7 +124,7 @@ def parse_gpg_packet_listing(output):
                     for part in line.split(","):
                         part = part.strip().split(" ")
                         if part[0] == "version": res.version = int(part[1])
-                        elif part[0] == "algo": res.algo = part[1]
+                        elif part[0] == "algo": res.algo = int(part[1])
                         elif part[0] == "created": res.created = int(part[1])
                         elif part[0] == "expires": res.expires = int(part[1])
                 elif line.startswith("pkey") or line.startswith("skey"):

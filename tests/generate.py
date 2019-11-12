@@ -1,69 +1,52 @@
+import datetime
 import random
+import time
 
-from date_utils import *
 
+def generateString(minstrlen=11, maxstrlen=200):
+    length = random.randint(minstrlen, maxstrlen)
+    return "".join([chr(random.randint(ord(' '), ord('~'))) for _ in range(length)])
 
-# Class hierarchy for randomly generating various kinds of data for input into
-# the program
-class Generate:
-    def generate():
-        raise NotImplementedError()
+def generateName():
+    return generateString()
 
-class GenerateString(Generate):
-    def generate():
-        length = random.randint(1, 200)
-        return "".join([chr(random.randint(ord(' '), ord('~'))) for _ in range(length)])
+def generateEmail():
+    return generateString()
 
-class GenerateName(GenerateString):
-    pass
+def generateDate(mindate_unix=631152000, maxdate_unix=2**32):
+    # Python's date functions don't handle dates past 9999 properly,
+    # but this is a sensible default range
+    timestamp = random.randint(mindate_unix, maxdate_unix)
+    date = datetime.datetime.fromtimestamp(timestamp)
 
-class GenerateEmail(GenerateString):
-    pass
+    return date.isoformat(sep=' ')
 
-class GenerateDate(Generate):
-    def generate():
-        while True:
-            year = random.randint(1990, 2100)
-            month = random.randint(1, 12)
-            day = random.randint(1, days_in_month(year, month))
-            hour = random.randint(0, 23)
-            minute = random.randint(0, 59)
-            second = random.randint(0, 59)
-            string = "{:04}-{:02}-{:02} {:02}:{:02}:{:02}".format(year, month, day, hour, minute, second)
-            if date_to_unix(string) >= 1511740800:  # TODO: Change to variable date
-                return string
+def generateDie():
+    return random.randint(1, 6)
 
-class GenerateDatePair(Generate):
-    def generate():
-        while True:
-            values = [GenerateDate.generate(), GenerateDate.generate()]
-            #  if values[0] == values[1]:
-            #      continue
-            values.sort()
-            return tuple(values)
+def generateDice():
+    length = 100 if random.randint(0, 1) == 0 else random.randint(100, 1000)
+    return "".join(str(generateDie()) for _ in range(length))
 
-class GenerateDie(Generate):
-    def generate():
-        return random.randint(1, 6)
+def generateSymmetricKey():
+    return generateString()
 
-class GenerateDice(Generate):
-    def generate():
-        length = 100 if random.randint(0, 1) == 0 else random.randint(100, 1000)
-        return "".join(str(GenerateDie.generate()) for _ in range(length))
+def generateInput():
+    # generate some dates in the right range
+    now = int(time.time())
+    date_key_creation = generateDate(maxdate_unix=now)
+    date_creation = generateDate(maxdate_unix=now)
+    date_expiration = generateDate(mindate_unix=now)
+    # the key creation date has to be before the signature creation date
+    date_key_creation, date_creation = sorted([date_key_creation, date_creation])
 
-class GenerateSymmetricKey(GenerateString):
-    pass
-
-class GenerateInput():
-    def generate():
-        datepair = GenerateDatePair.generate()
-        return {
-            "name": GenerateName.generate(),
-            "email": GenerateEmail.generate(),
-            "creation": datepair[0],
-            "expiration": datepair[1],
-            "dice": GenerateDice.generate(),
-            "key": GenerateSymmetricKey.generate(),
-            "context": GenerateString.generate(),
-            "key_creation": "2017-11-27 00:00:00",
-        }
+    return {
+        "name": generateName(),
+        "email": generateEmail(),
+        "creation": date_creation,
+        "expiration": date_expiration,
+        "dice": generateDice(),
+        "key": generateSymmetricKey(),
+        "context": generateString(minstrlen=8, maxstrlen=8),
+        "key_creation": date_key_creation
+    }

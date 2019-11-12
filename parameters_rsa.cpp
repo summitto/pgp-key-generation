@@ -99,6 +99,24 @@ pgp::packet parameters::rsa<modulus_size>::subkey_signature_packet(key_type type
     return packet_utils::subkey_signature(type, subkey, main_key, signature_creation, signature_expiration);
 }
 
+template <size_t modulus_size>
+void parameters::rsa<modulus_size>::dump_computed_keys(std::ostream &os, const computed_keys<typename rsa<modulus_size>::public_key_t, typename rsa<modulus_size>::secret_key_t> &keys)
+{
+    keys.dump_to_stream(
+        os,
+        [](std::ostream &stream, const typename rsa<modulus_size>::public_key_t &key) {
+            stream << "n=" << util::output::as_hex(key.n.data());
+            stream << " e=" << util::output::as_hex(key.e.data());
+        },
+        [](std::ostream &stream, const typename rsa<modulus_size>::secret_key_t &key) {
+            stream << "d=" << util::output::as_hex(key.d.data());
+            stream << " p=" << util::output::as_hex(key.p.data());
+            stream << " q=" << util::output::as_hex(key.q.data());
+            stream << " u=" << util::output::as_hex(key.u.data());
+        }
+    );
+}
+
 
 template class parameters::rsa<2048>;
 template class parameters::rsa<4096>;

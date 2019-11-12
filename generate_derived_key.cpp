@@ -3,7 +3,6 @@
 #include <boost/utility/string_view.hpp>
 #include <pgp-packet/range_encoder.h>
 #include <pgp-packet/packet.h>
-#include "derived_key.h"
 #include <sodium.h>
 #include <iomanip>
 #include <fstream>
@@ -89,6 +88,7 @@ namespace {
             } else if (word == "rsa8192") {
                 cl = key_class::rsa8192;
             } else {
+                std::cerr << "Unknown key type '" << word << "'" << std::endl;
                 // no parse, set the fail bit
                 s.setstate(std::ios_base::failbit);
             }
@@ -226,6 +226,8 @@ namespace {
         // meta-information for the key derivation
         opt_prompt<std::string> kdf_context;
         opt_prompt<tm_wrapper>  key_creation;
+
+        bool                    debug_dump_keys;
     };
 
     /**
@@ -252,8 +254,9 @@ namespace {
             ("email,e",        po::value<opt_prompt<std::string>>(&options.user_email),           "Your email address")
             ("sigtime,s",      po::value<opt_prompt<tm_wrapper>> (&options.signature_creation),   "Signature creation time in UTC (YYYY-MM-DD HH:MM:SS)")
             ("sigexpiry,x",    po::value<opt_prompt<tm_wrapper>> (&options.signature_expiration), "Signature expiration time in UTC (YYYY-MM-DD HH:MM:SS)")
-            ("kdf-context,k",  po::value<opt_prompt<std::string>>(&options.kdf_context),          "Key derivation context")
-            ("key-creation,c", po::value<opt_prompt<tm_wrapper>> (&options.key_creation),         "Key creation time in UTC (YYYY-MM-DD HH:MM:SS)");
+            ("kdf-context,k",  po::value<opt_prompt<std::string>>(&options.kdf_context),          "Key derivation context (8 bytes)")
+            ("key-creation,c", po::value<opt_prompt<tm_wrapper>> (&options.key_creation),         "Key creation time in UTC (YYYY-MM-DD HH:MM:SS)")
+            ("debug-dump-secret-and-public-keys", po::bool_switch(&options.debug_dump_keys),      "Dump generated key parameters; WARNING: sensitive data!");
 
         // run the option parser
         po::variables_map vm;
@@ -292,8 +295,15 @@ namespace {
         options.user_email          .ensure_prompt("Your email address");
         options.signature_creation  .ensure_prompt("Signature creation time in UTC (YYYY-MM-DD HH:MM:SS)");
         options.signature_expiration.ensure_prompt("Signature expiration time in UTC (YYYY-MM-DD HH:MM:SS)");
-        options.kdf_context         .ensure_prompt("Key derivation context");
+        options.kdf_context         .ensure_prompt("Key derivation context (8 bytes)");
         options.key_creation        .ensure_prompt("Key creation time in UTC (YYYY-MM-DD HH:MM:SS)");
+
+        // check that the KDF context is the right size
+        if (options.kdf_context->size() != 8) {
+            // alert the user to the invalid input and exit
+            std::cerr << "Key derivation context should be exactly 8 bytes, but is " << options.kdf_context->size() << " bytes" << std::endl;
+            exit(1);
+        }
 
         // return the created options struct
         return options;
@@ -386,7 +396,7 @@ int main(int argc, const char **argv)
     checker << sodium_init();
 
     // select the function with which to generate the packets
-    std::function<std::vector<pgp::packet>(const master_key&, std::string, uint32_t, uint32_t, uint32_t, boost::string_view)> generation_function;
+    std::function<std::vector<pgp::packet>(const master_key&, std::string, uint32_t, uint32_t, uint32_t, boost::string_view, bool)> generation_function;
     switch (*options.type) {
         case key_class::eddsa: generation_function = generate_key<parameters::eddsa>; break;
         case key_class::ecdsa: generation_function = generate_key<parameters::ecdsa>; break;
@@ -396,7 +406,7 @@ int main(int argc, const char **argv)
     }
 
     // generate the packets
-    auto packets = generation_function(master, std::move(user_id), key_creation_timestamp, signature_creation_timestamp, signature_expiration_timestamp, *options.kdf_context);
+    auto packets = generation_function(master, std::move(user_id), key_creation_timestamp, signature_creation_timestamp, signature_expiration_timestamp, *options.kdf_context, options.debug_dump_keys);
 
     // determine output size, create a vector for it and provide it to the encoder
     size_t                  data_size   ( std::accumulate(packets.begin(), packets.end(), 0, [](size_t a, auto &&b) -> size_t { return a + b.size(); }) );
