@@ -77,9 +77,9 @@ class Application:
     #     - None to send stderr to the terminal
     #     - subprocess.STDOUT to join stderr into stdout
     #     - subprocess.PIPE (internal, for subclasses)
-    def __init__(self, exec_name, args, **kwargs):
+    def __init__(self, exec_name, args, stderr=None):
         self._args = [exec_name] + args
-        self._stderr = kwargs.get("stderr")
+        self._stderr = stderr
         self._line_filter = None
 
     def __enter__(self):
@@ -126,9 +126,7 @@ class Application:
             return "\n".join(line for line in lines if self._line_filter(line))
 
 class KeygenApplication(Application):
-    # kwargs:
-    # - debug_dump_keys: if True, pass --debug-dump-secret-and-public-keys to the keygen application.
-    def __init__(self, exec_name, keyfile, appinput, **kwargs):
+    def __init__(self, exec_name, keyfile, appinput, debug_dump_keys=False):
         args = [
             "-o", keyfile,
             "-t", appinput.key_type,
@@ -140,7 +138,7 @@ class KeygenApplication(Application):
             "-c", appinput.key_creation
         ]
 
-        if kwargs.get("debug_dump_keys", False):
+        if debug_dump_keys:
             args += ["--debug-dump-secret-and-public-keys"]
 
         super().__init__(exec_name, args)
@@ -150,28 +148,28 @@ class GPGApplication(Application):
     # - also_stderr: if True, join the stderr stream into the stdout stream. Incompatible with ignore_stderr.
     # - ignore_stderr: if True, pass stderr to /dev/null. Incompatible with also_stderr.
     # - gpg_homedir: if not None, directory to use as GPG homedir. If not given, uses a new temporary directory.
-    def __init__(self, args, **kwargs):
-        if kwargs.get("gpg_homedir") is not None:
+    def __init__(self, args, gpg_homedir=None, also_stderr=False, ignore_stderr=False):
+        if gpg_homedir:
             self._gpg_homedir = None
-            self._gpg_homedir_name = kwargs.get("gpg_homedir")
+            self._gpg_homedir_name = gpg_homedir
         else:
             self._gpg_homedir = tempfile.TemporaryDirectory()
             self._gpg_homedir_name = self._gpg_homedir.name
 
-        if kwargs.get("also_stderr") and kwargs.get("ignore_stderr"):
+        if also_stderr and ignore_stderr:
             raise Exception("Cannot pass both also_stderr and ignore_stderr to GPGApplication")
 
-        if kwargs.get("also_stderr"):
+        if also_stderr:
             super().__init__("gpg", ["--homedir", self._gpg_homedir_name] + args, stderr = subprocess.STDOUT)
             self._line_filter = lambda line: re.match(r"^gpg: (keybox '.*' created|.*: trustdb created)$", line) is None
 
             self._gpg_should_grep = False
-        elif kwargs.get("ignore_stderr"):
-            super().__init__("gpg", ["--homedir", self._gpg_homedir_name] + args, stderr = subprocess.DEVNULL)
+        elif ignore_stderr:
+            super().__init__("gpg", ["--homedir", self._gpg_homedir_name] + args, stderr=subprocess.DEVNULL)
 
             self._gpg_should_grep = False
         else:
-            super().__init__("gpg", ["--homedir", self._gpg_homedir_name] + args, stderr = subprocess.PIPE)
+            super().__init__("gpg", ["--homedir", self._gpg_homedir_name] + args, stderr=subprocess.PIPE)
 
             self._gpg_should_grep = True
 
@@ -199,7 +197,7 @@ def parse_pgp_packet(filename):
 
 # Passes all keyword arguments on to GPGApplication.
 def import_gpg_packet(filename, **kwargs):
-    with GPGApplication(["--import", filename], also_stderr = True, **kwargs) as app:
+    with GPGApplication(["--import", filename], also_stderr=True, **kwargs) as app:
         output = app.read_all().split("\n")
 
     l = [
@@ -222,7 +220,7 @@ def import_gpg_packet(filename, **kwargs):
 # Lists the fingerprints of all secret and public keys known to GPG with the
 # given arguments.
 def list_fingerprints(**kwargs):
-    with GPGApplication(["--list-secret-keys", "--with-colons"], ignore_stderr = True, **kwargs) as app:
+    with GPGApplication(["--list-secret-keys", "--with-colons"], ignore_stderr=True, **kwargs) as app:
         output = [line.split(":") for line in app.read_all().split("\n")]
 
     # Return the last 16 bytes (the key id), because that's what the rest of
@@ -242,7 +240,7 @@ def sign_encrypt_file(keyid, message_fname, output_fname, **kwargs):
                 "-o", output_fname,      # write the result to this file
                 "--trusted-key", keyid,  # trust our key (otherwise GPG won't encrypt for it)
                 message_fname
-            ], ignore_stderr = True, **kwargs) as app:
+            ], ignore_stderr=True, **kwargs) as app:
         # Ignore the output
         app.read_all()
 
@@ -255,7 +253,7 @@ def decrypt_file(encrypted_fname, output_fname, **kwargs):
     if os.access(output_fname, os.F_OK):
         os.remove(output_fname)
 
-    with GPGApplication(["--decrypt", "-o", output_fname, encrypted_fname], ignore_stderr = True, **kwargs) as app:
+    with GPGApplication(["--decrypt", "-o", output_fname, encrypted_fname], ignore_stderr=True, **kwargs) as app:
         # Ignore the output
         app.read_all()
 
@@ -266,7 +264,7 @@ def decrypt_file(encrypted_fname, output_fname, **kwargs):
 def generate_initial_key(workdir, exec_name, appinput):
     keyfile = os.path.join(workdir, safe_temporary_name())
 
-    with KeygenApplication(exec_name, keyfile, appinput, debug_dump_keys = True) as app:
+    with KeygenApplication(exec_name, keyfile, appinput, debug_dump_keys=True) as app:
         app.write_line("")  # generate a new key, no recovery seed
         app.write_line(appinput.dice)
         app.write_line(appinput.key)
@@ -486,7 +484,7 @@ def main():
         print("Usage: {} <generate_derived_key executable>", file = sys.stderr)
         sys.exit(1)
 
-    num_tests = 200
+    num_tests = 2
     key_classes = ["eddsa", "ecdsa", "rsa2048", "rsa4096", "rsa8192"]
 
     for key_class in key_classes:
