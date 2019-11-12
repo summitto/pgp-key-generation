@@ -490,13 +490,15 @@ def run_test(exec_name, key_class):
 
 
 def main():
-    if len(sys.argv) == 2:
-        exec_name = sys.argv[1]
-    else:
-        print("Usage: {} <generate_derived_key executable>", file = sys.stderr)
-        sys.exit(1)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("exec_name", help="generate_derived_key executable")
+    parser.add_argument("-n", "--num_tests", required=False, type=int, default=200,
+                        help="Number of repetitions to run for the tests.")
 
-    num_tests = 2
+    args = parser.parse_args()
+    exec_name = args.exec_name
+    num_tests = args.num_tests
+
     key_classes = ["eddsa", "ecdsa", "rsa2048", "rsa4096", "rsa8192"]
 
     for key_class in key_classes:
@@ -507,6 +509,7 @@ def main():
                 sys.exit(1)
 
     print("Succeeded!")
+
 
 if __name__ == "__main__":
     main()
