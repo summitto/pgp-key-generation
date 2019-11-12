@@ -289,7 +289,11 @@ def generate_initial_key(workdir, exec_name, appinput):
         seed_start = text.find(":", idx1) + 2
         seed = text[seed_start:].split("\n")[0]
 
-        param_lines = re.search(r"COMPUTED KEYS:\n(- [^\n]*\n)*", text)[0].split("\n")[1:-1]
+        param_match = re.search(r"COMPUTED KEYS:\n(- [^\n]*\n)*", text)
+        if not param_match:
+            raise ValueError("Can't find COMPUTED KEYS in", text)
+
+        param_lines = param_match[0].split("\n")[1:-1]
         param_dict = {keytype: params
                       for [keytype, params] in [line[2:].split(": ") for line in param_lines]}
 
@@ -329,7 +333,7 @@ def check_params_against_parsed(params, parsed):
                             [data for (t, i, data) in pkt.keys if (t, i) == (typ, idx)][0])
             if gpgvalue != value:
                 print("In checking debug-printed parameters against GPG parsed values:")
-                print("Tag {} has value:".format(typ, idx))
+                print("Tag {} {} has value:".format(typ, idx))
                 print(gpgvalue)
                 print("But should have had value:")
                 print(value)
@@ -342,12 +346,12 @@ def check_params_against_parsed(params, parsed):
         if pkt.algo == 1:  # RSA
             pub_param_dict = key_value_parse(pub_param)
             sec_param_dict = key_value_parse(sec_param)
-            return check_in_list("pkey", 0, pub_param_dict["n"]) and \
-                    check_in_list("pkey", 1, pub_param_dict["e"]) and \
-                    check_in_list("skey", 2, sec_param_dict["d"]) and \
-                    check_in_list("skey", 3, sec_param_dict["p"]) and \
-                    check_in_list("skey", 4, sec_param_dict["q"]) and \
-                    check_in_list("skey", 5, sec_param_dict["u"])
+            return (check_in_list("pkey", 0, pub_param_dict["n"]) and
+                    check_in_list("pkey", 1, pub_param_dict["e"]) and
+                    check_in_list("skey", 2, sec_param_dict["d"]) and
+                    check_in_list("skey", 3, sec_param_dict["p"]) and
+                    check_in_list("skey", 4, sec_param_dict["q"]) and
+                    check_in_list("skey", 5, sec_param_dict["u"]))
         elif pkt.algo == 18:  # ECDH
             return check_in_list("pkey", 1, pub_param) and check_in_list("skey", 3, sec_param)
         elif pkt.algo == 19:  # ECDSA
@@ -380,6 +384,7 @@ def check_params_against_parsed(params, parsed):
     kinds = ["main", "signing", "encryption", "authentication"]
     if not all(k in seckeys for k in kinds):
         print("Expected main, signing, encryption and authentication keys in packet listing")
+        print("Actual:", kinds)
         return False
 
     for kind in kinds:
@@ -433,8 +438,6 @@ def run_test(exec_name, key_class):
         assert isinstance(parsed1[0], SecretKeyPacket)
         keyid = parsed1[0].keyid
 
-        all_keyids = [packet.keyid for packet in parsed1 if isinstance(packet, SecretKeyPacket)]
-
         # --- Check sanity of the signature creation timestamp
         creation_stamp = date_to_unix(appinput.creation)
 
@@ -450,6 +453,7 @@ def run_test(exec_name, key_class):
         # --- Now we wish to perform more extensive testing on the
         #     generated key after it is imported, so we create a
         #     dedicated GPG homedir for gpg to store its state in
+        all_keyids = [packet.keyid for packet in parsed1 if isinstance(packet, SecretKeyPacket)]
         with tempfile.TemporaryDirectory() as gpg_homedir:
             # --- Test importing a key
             if not import_gpg_packet(keyfile1, gpg_homedir = gpg_homedir):
