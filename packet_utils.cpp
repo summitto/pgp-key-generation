@@ -84,7 +84,7 @@ namespace packet_utils {
                 pgp::signature_subpacket::issuer_fingerprint     { main_key.fingerprint() }, // fingerprint of the key we are signing with
                 parameters::key_flags_for_type(type)                                         // the privileges for this subkey
             }},
-            unhashed_subpackets                                                              // the unhashed subpackets
+            pgp::signature_subpacket_set{ unhashed_subpackets }                              // the unhashed subpackets
         };
     }
 

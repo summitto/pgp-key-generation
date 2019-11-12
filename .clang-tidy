@@ -1,0 +1,13 @@
+---
+Checks:                 'clang-diagnostic-*,clang-analyzer-*,boost-*,bugprone-*,cert-*,cppcoreguidelines-*,-cppcoreguidelines-macro-usage,-cppcoreguidelines-avoid-magic-numbers,-cppcoreguidelines-c-copy-assignment-signature,-cppcoreguidelines-pro-type-reinterpret-cast,hicpp-*,-hicpp-explicit-conversions,misc-*,-misc-unused-using-decls,performance-*,portability-*'
+WarningsAsErrors:       ''
+HeaderFilterRegex:      ''
+AnalyzeTemporaryDtors:  false
+FormatStyle:            none
+CheckOptions:
+  - key:    cert-dcl16-c.NewSuffixes
+    value:  'L;LL;LU;LLU'
+  - key:    cppcoreguidelines-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic
+    value:  '1'
+...
+

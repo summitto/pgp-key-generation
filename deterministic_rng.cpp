@@ -4,7 +4,8 @@
 
 
 deterministic_rng::deterministic_rng(const std::array<uint8_t, seed_size> &seed) :
-    _seed(seed)
+    _seed(seed),
+    _last_block{}
 {}
 
 /**
@@ -36,11 +37,10 @@ void deterministic_rng::generate_block_multiple(uint8_t *output, size_t size)
     error_checker<0> checker;
 
     // We're going to encrypt zero bytes in-place.
-    std::fill(output, output + size, 0);
+    std::fill_n(output, size, 0);
 
     // We want a zero nonce.
-    std::array<uint8_t, crypto_stream_chacha20_NONCEBYTES> nonce;
-    std::fill(nonce.begin(), nonce.end(), 0);
+    std::array<uint8_t, crypto_stream_chacha20_NONCEBYTES> nonce{};
 
     // Perform the encryption.
     checker << crypto_stream_chacha20_xor_ic(
@@ -59,6 +59,14 @@ void deterministic_rng::generate_block_multiple(uint8_t *output, size_t size)
  */
 void deterministic_rng::GenerateBlock(CryptoPP::byte *output, size_t size)
 {
+    GenerateBlock(pgp::span(output, size));
+}
+
+/**
+ *  Generate random bytes, as documented in the base class.
+ */
+void deterministic_rng::GenerateBlock(pgp::span<CryptoPP::byte> output)
+{
     // Implementation: we want to encrypt some zero bytes using the seed as key
     // and with a zero nonce; and each time we get a request for more bytes, we
     // should move further in the ChaCha20 stream. Libsodium allows us to start
@@ -67,21 +75,20 @@ void deterministic_rng::GenerateBlock(CryptoPP::byte *output, size_t size)
 
     if (_last_block_cursor != _last_block.end()) {
         // We have bytes left in the last block that we have to dispatch first.
-        if (size <= static_cast<size_t>(std::distance(_last_block_cursor, _last_block.end()))) {
+        if (output.size() <= std::distance(_last_block_cursor, _last_block.end())) {
             // The bytes in the last block are sufficient.
-            std::copy(_last_block_cursor, std::next(_last_block_cursor, size), output);
-            std::advance(_last_block_cursor, size);
+            std::copy_n(_last_block_cursor, output.size(), output.begin());
+            std::advance(_last_block_cursor, output.size());
             return;
         } else {
             // First get the prefix from the last block, then continue
             // generating the rest.
             size_t prefix_size = std::distance(_last_block_cursor, _last_block.end());
 
-            std::copy(_last_block_cursor, _last_block.end(), output);
+            std::copy(_last_block_cursor, _last_block.end(), output.begin());
             _last_block_cursor = _last_block.end();
 
-            output += prefix_size;
-            size -= prefix_size;
+            output = output.subspan(prefix_size);
         }
     }
 
@@ -90,19 +97,18 @@ void deterministic_rng::GenerateBlock(CryptoPP::byte *output, size_t size)
     // block into _last_block and then generate the last few bytes from that.
 
     // First the prefix.
-    const size_t prefix_blocks = size / chacha20_block_size;
+    const size_t prefix_blocks = output.size() / chacha20_block_size;
     const size_t prefix_bytes = prefix_blocks * chacha20_block_size;
-    generate_block_multiple(output, prefix_bytes);
+    generate_block_multiple(output.data(), prefix_bytes);
 
-    output += prefix_bytes;
-    size -= prefix_bytes;
+    output = output.subspan(prefix_bytes);
 
     // Then the possible remainder.
-    if (size > 0) {
+    if (!output.empty()) {
         generate_block_multiple(_last_block.data(), _last_block.size());
         _last_block_cursor = _last_block.begin();
 
         // Just do a recursive call to generate the partial block.
-        GenerateBlock(output, size);
+        GenerateBlock(output);
     }
 }

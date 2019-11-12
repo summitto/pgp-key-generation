@@ -52,8 +52,14 @@ add_subdirectory(tests)
 # Custom target for clang-tidy
 find_program(clang_tidy_path NAMES clang-tidy)
 if (clang_tidy_path)
+    set(include-files
+        *.h
+        util/*.h
+    )
+    #   Additional configuration options (e.g. the enabled checkers) will be
+    #   taken from the .clang-tidy file in the root of the repository
     add_custom_target(tidy
-        COMMAND ${clang_tidy_path} -p="${CMAKE_CURRENT_BINARY_DIR}" ${sources-list}
+        COMMAND ${clang_tidy_path} -p="${CMAKE_CURRENT_BINARY_DIR}" ${sources-list} ${include-files}
         COMMENT "Running clang-tidy"
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     )

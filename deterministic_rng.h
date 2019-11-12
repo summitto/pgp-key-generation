@@ -1,6 +1,7 @@
 #include <sodium/crypto_stream_chacha20.h>
 #include <cryptopp/cryptlib.h>
 #include <array>
+#include <pgp-packet/util/span.h>
 
 #if (CRYPTOPP_VERSION <= 600)
     // cryptopp made the unfathomable decision to add
@@ -31,6 +32,7 @@ public:
     /**
      *  Generate random bytes, as documented in the base class.
      */
+    void GenerateBlock(pgp::span<CryptoPP::byte> output);
     void GenerateBlock(CryptoPP::byte *output, size_t size) override;
 
 private:

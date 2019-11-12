@@ -92,7 +92,15 @@ device.
 
 ## Static analysis
 
+### CppCheck
+
 The project can be analyzed with
 [Cppcheck](http://cppcheck.sourceforge.net/) by using the `cppcheck`
 target. This target is available only if the `cppcheck` binary can be
 found.
+
+### Clang Tidy
+
+If the `clang-tidy` binary can be found, the `tidy` target will be available
+for `make` to run the checks configured in `.clang-tidy`.
+
