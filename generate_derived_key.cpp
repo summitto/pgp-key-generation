@@ -8,7 +8,6 @@
 #include <fstream>
 #include <sstream>
 #include <string>
-#include "errors.h"
 #include "time_utils.h"
 #include "generate_key.h"
 #include "hexadecimal.h"
@@ -321,6 +320,13 @@ int main(int argc, const char **argv)
 {
     try
     {
+        // initialize libsodium
+        if (sodium_init() == -1) {
+            // log the error and abort
+            std::cerr << "Failed to initialize libsodium" << std::endl;
+            return 1;
+        }
+
         // parse the command-line arguments
         Options options = parse_options(argc, argv);
 
@@ -390,12 +396,6 @@ int main(int argc, const char **argv)
         std::time_t key_creation_timestamp          = time_utils::tm_to_utc_unix_timestamp(*options.key_creation);
         std::time_t signature_creation_timestamp    = time_utils::tm_to_utc_unix_timestamp(*options.signature_creation);
         std::time_t signature_expiration_timestamp  = time_utils::tm_to_utc_unix_timestamp(*options.signature_expiration);
-
-        // create an error checker
-        error_checker<0> checker;
-
-        // initialize libsodium
-        checker << sodium_init();
 
         // select the function with which to generate the packets
         std::function<std::vector<pgp::packet>(const master_key&, std::string, uint32_t, uint32_t, uint32_t, boost::string_view, bool)> generation_function;
