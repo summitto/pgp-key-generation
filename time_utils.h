@@ -126,6 +126,7 @@ namespace time_utils {
     {
         // check whether we received a valid year
         Expects(year >= 1970);
+        Expects(year <= 11761191);
 
         if (year < 2000) {
             // Every fourth year is a leap year, starting with 1972.
