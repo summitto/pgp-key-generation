@@ -15,6 +15,10 @@ class KeyExpirationSubpacket(Subpacket):
     expires: str
 
 @dataclass
+class PreferredSymmetricKeyAlgorithmsSubpacket(Subpacket):
+    algorithms: str
+
+@dataclass
 class KeyFlagsSubpacket(Subpacket):
     flags: int
 
@@ -99,6 +103,9 @@ def parse_gpg_packet_listing(output):
         elif typeid == 9:  # key expires
             match = re.match(r"^key expires after (.*)$", text)
             return KeyExpirationSubpacket(match.group(1))
+        elif typeid == 11:  # preferred symmetric key algorithms
+            match = re.match(r"^pref-sym-algos: (.*)$", text)
+            return PreferredSymmetricKeyAlgorithmsSubpacket(match.group(1))
         elif typeid == 27:  # key flags
             match = re.match(r"^key flags: (.*)$", text)
             return KeyFlagsSubpacket(int(match.group(1), 16))
