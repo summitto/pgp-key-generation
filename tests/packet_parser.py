@@ -19,6 +19,10 @@ class PreferredSymmetricKeyAlgorithmsSubpacket(Subpacket):
     algorithms: str
 
 @dataclass
+class PreferredHashAlgorithmsSubpacket(Subpacket):
+    algorithms: str
+
+@dataclass
 class KeyFlagsSubpacket(Subpacket):
     flags: int
 
@@ -106,6 +110,9 @@ def parse_gpg_packet_listing(output):
         elif typeid == 11:  # preferred symmetric key algorithms
             match = re.match(r"^pref-sym-algos: (.*)$", text)
             return PreferredSymmetricKeyAlgorithmsSubpacket(match.group(1))
+        elif typeid == 21:  # preferred hashing algorithms
+            match = re.match(r"^pref-hash-algos: (.*)$", text)
+            return PreferredHashAlgorithmsSubpacket(match.group(1))
         elif typeid == 27:  # key flags
             match = re.match(r"^key flags: (.*)$", text)
             return KeyFlagsSubpacket(int(match.group(1), 16))

@@ -28,6 +28,12 @@ namespace packet_utils {
                     pgp::symmetric_key_algorithm::aes256,
                     pgp::symmetric_key_algorithm::aes192,
                     pgp::symmetric_key_algorithm::aes128
+                }},
+                pgp::signature_subpacket::preferred_hash_algorithms{{                        // the preferred hashing algorithms
+                    pgp::hash_algorithm::sha512,
+                    pgp::hash_algorithm::sha384,
+                    pgp::hash_algorithm::sha256,
+                    pgp::hash_algorithm::sha224
                 }}
             }},
             pgp::signature_subpacket_set{{                                                   // unhashed subpackets
