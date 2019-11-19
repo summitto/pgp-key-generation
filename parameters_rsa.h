@@ -20,10 +20,10 @@ namespace parameters {
         };
 
         static computed_keys<public_key_t, secret_key_t> compute_keys(
-            const std::array<uint8_t, derivation_size> &main_key_derivation,
-            const std::array<uint8_t, derivation_size> &signing_key_derivation,
-            const std::array<uint8_t, derivation_size> &encryption_key_derivation,
-            const std::array<uint8_t, derivation_size> &authentication_key_derivation
+            const pgp::secure_object<std::array<uint8_t, derivation_size>> &main_key_derivation,
+            const pgp::secure_object<std::array<uint8_t, derivation_size>> &signing_key_derivation,
+            const pgp::secure_object<std::array<uint8_t, derivation_size>> &encryption_key_derivation,
+            const pgp::secure_object<std::array<uint8_t, derivation_size>> &authentication_key_derivation
         );
 
         static void dump_computed_keys(std::ostream &os, const computed_keys<typename rsa<modulus_size>::public_key_t, typename rsa<modulus_size>::secret_key_t> &keys);

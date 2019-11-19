@@ -1,5 +1,6 @@
 #pragma once
 
+#include "secure_string.h"
 #include <array>
 #include <cstdint>
 #include <string>
@@ -22,10 +23,10 @@
  *  @throws std::range_error    if the input cannot be parsed properly
  */
 template <size_t width>
-std::array<uint8_t, width> convert_string_to_numbers(const std::string &input)
+pgp::secure_object<std::array<uint8_t, width>> convert_string_to_numbers(const secure_string &input)
 {
     // create the result variable
-    std::array<uint8_t, width> result;
+    pgp::secure_object<std::array<uint8_t, width>> result;
 
     // abort on failure
     if (input.size() != width * 2) {

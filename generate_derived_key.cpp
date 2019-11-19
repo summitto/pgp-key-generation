@@ -341,7 +341,7 @@ int main(int argc, const char **argv)
         std::string user_id = *options.user_name + " <" + *options.user_email + ">";
 
         // read the recovery seed
-        std::string recovery_seed{"invalid"};
+        secure_string recovery_seed{"invalid"};
         while (!recovery_seed.empty() && recovery_seed.size() != crypto_kdf_KEYBYTES * 2) {
             // don't have a valid recovery seed yet
             std::cout << "Enter recovery seed, or press enter to generate a new key: ";
@@ -363,8 +363,8 @@ int main(int argc, const char **argv)
             master = master.encrypt_symmetric();
         } else {
             // the dice result
-            std::string dice_numbers;
-            std::string dice_input;
+            secure_string dice_numbers;
+            secure_string dice_input;
 
             // allocate space for the numbers
             dice_numbers.reserve(128);
@@ -410,10 +410,17 @@ int main(int argc, const char **argv)
         // generate the packets
         auto packets = generation_function(master, std::move(user_id), key_creation_timestamp, signature_creation_timestamp, signature_expiration_timestamp, *options.kdf_context, options.debug_dump_keys);
 
+        // determine output size
+        size_t data_size = std::accumulate(packets.begin(), packets.end(), 0, [](size_t a, auto &&b) -> size_t {
+            return a + b.size();
+        });
+
+        // create a vector for the data
+        pgp::vector<uint8_t> out_data;
+        out_data.resize(data_size);
+
         // determine output size, create a vector for it and provide it to the encoder
-        size_t                  data_size   ( std::accumulate(packets.begin(), packets.end(), 0, [](size_t a, auto &&b) -> size_t { return a + b.size(); }) );
-        std::vector<uint8_t>    out_data    ( data_size                                                                                                     );
-        pgp::range_encoder      encoder     { out_data                                                                                                      };
+        pgp::range_encoder encoder{ out_data };
 
         // encode all the packets we just created
         for (auto &packet : packets) {
@@ -421,7 +428,7 @@ int main(int argc, const char **argv)
         }
 
         // write it to the requested file
-        std::ofstream{ *options.output_file }.write(reinterpret_cast<const char*>(out_data.data()), encoder.size());
+        pgp::secure_object<std::ofstream>{ *options.output_file }.write(reinterpret_cast<const char*>(out_data.data()), encoder.size());
 
         // if we don't have a seed, we created a new key, so we must show the seed output
         if (recovery_seed.empty()) {

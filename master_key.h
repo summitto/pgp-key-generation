@@ -1,5 +1,6 @@
 #pragma once
 
+#include "secure_string.h"
 #include <functional>
 #include <algorithm>
 #include <iostream>
@@ -10,7 +11,7 @@
 /**
  *  A master key to be used for key derivation
  */
-class master_key : public std::array<uint8_t, crypto_kdf_KEYBYTES>
+class master_key : public pgp::secure_object<std::array<uint8_t, crypto_kdf_KEYBYTES>>
 {
     public:
         /**
@@ -30,7 +31,7 @@ class master_key : public std::array<uint8_t, crypto_kdf_KEYBYTES>
         master_key encrypt_symmetric()
         {
             // the symmetric encryption key
-            std::string key;
+            secure_string key;
 
             // keep going until we get a key
             while (key.empty()) {
@@ -40,8 +41,8 @@ class master_key : public std::array<uint8_t, crypto_kdf_KEYBYTES>
             }
 
             // the output of the hash function we use as kdf and the new master key
-            std::array<uint8_t, 32> key_hash;
-            master_key              result;
+            pgp::secure_object<std::array<uint8_t, 32>> key_hash;
+            master_key                                  result;
 
             // generate the hash from the key
             crypto_hash_sha256(key_hash.data(), reinterpret_cast<const uint8_t*>(key.data()), key.size());

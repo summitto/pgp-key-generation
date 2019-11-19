@@ -9,7 +9,7 @@ namespace {
     void generate_from_derivation(
         parameters::ecdsa::public_key_t &output_key_public,
         parameters::ecdsa::secret_key_t &output_key_secret,
-        const std::array<uint8_t, parameters::ecdsa::secret_key_size> &key_derivation
+        const pgp::secure_object<std::array<uint8_t, parameters::ecdsa::secret_key_size>> &key_derivation
     )
     {
         CryptoPP::ECDSA<CryptoPP::ECP, void>::PrivateKey secretKey;
@@ -46,10 +46,10 @@ namespace {
 
 parameters::computed_keys<parameters::ecdsa::public_key_t, parameters::ecdsa::secret_key_t>
 parameters::ecdsa::compute_keys(
-    const std::array<uint8_t, derivation_size> &main_key_derivation,
-    const std::array<uint8_t, derivation_size> &signing_key_derivation,
-    const std::array<uint8_t, derivation_size> &encryption_key_derivation,
-    const std::array<uint8_t, derivation_size> &authentication_key_derivation
+    const pgp::secure_object<std::array<uint8_t, derivation_size>> &main_key_derivation,
+    const pgp::secure_object<std::array<uint8_t, derivation_size>> &signing_key_derivation,
+    const pgp::secure_object<std::array<uint8_t, derivation_size>> &encryption_key_derivation,
+    const pgp::secure_object<std::array<uint8_t, derivation_size>> &authentication_key_derivation
 )
 {
     computed_keys<public_key_t, secret_key_t> result;
