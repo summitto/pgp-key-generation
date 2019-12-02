@@ -6,7 +6,7 @@ This repository provides the source for a utility used for creating PGP keys usi
 [libsodium](https://download.libsodium.org/doc/ "Introduction - Libsodium documentation")
 (for ed- and curve25519 keys) or
 [Crypto++](https://www.cryptopp.com/ "Crypto++ Library | Free C++ Class Library of Cryptographic Schemes")
-(for ec25519 and RSA keys).
+(for nist-p256 and RSA keys).
 
 Generating keys will also output a 64-character hexadecimal seed value, which, in
 combination with the chosen passphrase, can be used to recreate the exact same key.
@@ -24,6 +24,9 @@ the `dataclasses` library) and GnuPG to be installed.
 
 ## Generating new keys
 
+Please read all of the steps below thoroughly before actually starting to
+generate a key.
+
 - If you have a new smartcard, change the user and admin pin first. See:
   https://www.gnupg.org/howtos/card-howto/en/ch03s02.html
 - install `GnuPG` and this utility on a secure, offline computer. See:
@@ -33,13 +36,13 @@ the `dataclasses` library) and GnuPG to be installed.
 - run key generation utility, for example using:
 
     generate_derived_key -o keyfile -t eddsa -n "firstname lastname" -e email
-    -s "2011-01-01 01:01:01" -x "2099-09-09 09:09:09" -k test -c "2011-01-01
+    -s "2011-01-01 01:01:01" -x "2099-09-09 09:09:09" -k "12345678" -c "2011-01-01
     01:01:01"
 
 - The program will either generate a new encrypted seed using dice input, or you
   can use an existing encrypted seed to generate your key. If you generate a
-  new seed, store it in a secure place  
-- import the generated key file into gpg with "gpg --import file"
+  new seed, store it in a secure place.  
+- import the generated key file into gpg with "gpg --import file". 
 
 If you have a smart card, you can import the private key as follows:
 
@@ -73,10 +76,14 @@ You should now have a functional key. You can test it as follows:
 
 If you want to change the expiry date of existing keys, you can simply follow
 the steps above again to generate a new key with a different expiry date, using
-your encrypted seed and passphrase.
+your encrypted seed and passphrase. 
+
+Note that when you import your key into gpg, you should check whether the key
+ID matches the key ID of your previous key. This ensures that you didn't make
+any errors when passing data to the key generation utility.
 
 Note that before importing a public key with a new expiry date into `GnuPG`,
-you must delete your old public key first.
+you must delete your old public key first. 
 
 ## Upgrading hardware tokens
 
