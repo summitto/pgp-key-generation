@@ -25,10 +25,10 @@ concept bool KeyParameters() {
          * The computed keys need to be in the format that pgp-packet-library accepts.
          */
         {T::compute_keys} -> parameters::computed_keys<T::public_key_size, T::secret_key_size>(*)(
-            const std::array<uint8_t, T::secret_key_size> &main_key_derivation,
-            const std::array<uint8_t, T::secret_key_size> &signing_key_derivation,
-            const std::array<uint8_t, T::secret_key_size> &encryption_key_derivation,
-            const std::array<uint8_t, T::secret_key_size> &authentication_key_derivation
+            const pgp::secure_object<std::array<uint8_t, T::secret_key_size>> &main_key_derivation,
+            const pgp::secure_object<std::array<uint8_t, T::secret_key_size>> &signing_key_derivation,
+            const pgp::secure_object<std::array<uint8_t, T::secret_key_size>> &encryption_key_derivation,
+            const pgp::secure_object<std::array<uint8_t, T::secret_key_size>> &authentication_key_derivation
         );
 
         /**
@@ -44,7 +44,7 @@ concept bool KeyParameters() {
             parameters::key_type type,
             uint32_t creation,
             const std::array<uint8_t, T::public_key_size> &public_key,
-            const std::array<uint8_t, T::secret_key_size> &secret_key
+            const pgp::secure_object<std::array<uint8_t, T::secret_key_size>> &secret_key
         );
 
         /**

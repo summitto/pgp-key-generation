@@ -7,10 +7,10 @@
 
 parameters::computed_keys<parameters::eddsa::public_key_t, parameters::eddsa::secret_key_t>
 parameters::eddsa::compute_keys(
-    const std::array<uint8_t, derivation_size> &main_key_derivation,
-    const std::array<uint8_t, derivation_size> &signing_key_derivation,
-    const std::array<uint8_t, derivation_size> &encryption_key_derivation,
-    const std::array<uint8_t, derivation_size> &authentication_key_derivation
+    const pgp::secure_object<std::array<uint8_t, derivation_size>> &main_key_derivation,
+    const pgp::secure_object<std::array<uint8_t, derivation_size>> &signing_key_derivation,
+    const pgp::secure_object<std::array<uint8_t, derivation_size>> &encryption_key_derivation,
+    const pgp::secure_object<std::array<uint8_t, derivation_size>> &authentication_key_derivation
 )
 {
     // Assert statically that the sizes match up.
@@ -29,18 +29,19 @@ parameters::eddsa::compute_keys(
 
     // Declare the arrays to hold the generated keys before conversion to the format used in PGP.
     std::array<uint8_t, crypto_sign_PUBLICKEYBYTES>         main_key_public;
-    std::array<uint8_t, crypto_sign_SECRETKEYBYTES>         main_key_secret;
     std::array<uint8_t, crypto_sign_PUBLICKEYBYTES>         signing_key_public;
-    std::array<uint8_t, crypto_sign_SECRETKEYBYTES>         signing_key_secret;
     std::array<uint8_t, crypto_scalarmult_curve25519_BYTES> encryption_key_public;
-    std::array<uint8_t, crypto_scalarmult_curve25519_BYTES> encryption_key_secret;
     std::array<uint8_t, crypto_sign_PUBLICKEYBYTES>         authentication_key_public;
-    std::array<uint8_t, crypto_sign_SECRETKEYBYTES>         authentication_key_secret;
+
+    pgp::secure_object<std::array<uint8_t, crypto_sign_SECRETKEYBYTES>>         main_key_secret;
+    pgp::secure_object<std::array<uint8_t, crypto_sign_SECRETKEYBYTES>>         signing_key_secret;
+    pgp::secure_object<std::array<uint8_t, crypto_scalarmult_curve25519_BYTES>> encryption_key_secret;
+    pgp::secure_object<std::array<uint8_t, crypto_sign_SECRETKEYBYTES>>         authentication_key_secret;
 
     // The encryption key is generated as an ed25519 key but need to be stored as a curve25519 key;
     // so put the ed25519 key here, then later convert it to the right place.
     std::array<uint8_t, crypto_sign_PUBLICKEYBYTES> temp_key_public;
-    std::array<uint8_t, crypto_sign_SECRETKEYBYTES> temp_key_secret;
+    pgp::secure_object<std::array<uint8_t, crypto_sign_SECRETKEYBYTES>> temp_key_secret;
 
     // Create the curve from the derived key; note that the encryption key goes into the temporary
     // buffer first.

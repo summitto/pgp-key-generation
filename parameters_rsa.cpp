@@ -10,7 +10,7 @@ namespace {
     void generate_from_derivation(
         typename parameters::rsa<modulus_size>::public_key_t &output_key_public,
         typename parameters::rsa<modulus_size>::secret_key_t &output_key_secret,
-        const std::array<uint8_t, parameters::rsa<modulus_size>::derivation_size> &key_derivation
+        const pgp::secure_object<std::array<uint8_t, parameters::rsa<modulus_size>::derivation_size>> &key_derivation
     )
     {
         deterministic_rng prng{key_derivation};
@@ -37,10 +37,10 @@ namespace {
 template <size_t modulus_size>
 parameters::computed_keys<typename parameters::rsa<modulus_size>::public_key_t, typename parameters::rsa<modulus_size>::secret_key_t>
 parameters::rsa<modulus_size>::compute_keys(
-    const std::array<uint8_t, derivation_size> &main_key_derivation,
-    const std::array<uint8_t, derivation_size> &signing_key_derivation,
-    const std::array<uint8_t, derivation_size> &encryption_key_derivation,
-    const std::array<uint8_t, derivation_size> &authentication_key_derivation
+    const pgp::secure_object<std::array<uint8_t, derivation_size>> &main_key_derivation,
+    const pgp::secure_object<std::array<uint8_t, derivation_size>> &signing_key_derivation,
+    const pgp::secure_object<std::array<uint8_t, derivation_size>> &encryption_key_derivation,
+    const pgp::secure_object<std::array<uint8_t, derivation_size>> &authentication_key_derivation
 )
 {
     computed_keys<public_key_t, secret_key_t> result;

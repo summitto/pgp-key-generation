@@ -3,9 +3,8 @@
 #include "errors.h"
 
 
-deterministic_rng::deterministic_rng(const std::array<uint8_t, seed_size> &seed) :
-    _seed(seed),
-    _last_block{}
+deterministic_rng::deterministic_rng(const pgp::secure_object<std::array<uint8_t, seed_size>> &seed) :
+    _seed(seed)
 {}
 
 /**

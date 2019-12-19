@@ -22,7 +22,19 @@ namespace packet_utils {
                 pgp::signature_subpacket::signature_creation_time{ signature_creation  },    // signature was created at
                 pgp::signature_subpacket::key_expiration_time    { signature_expiration },   // signature expires at
                 pgp::signature_subpacket::issuer_fingerprint     { main_key.fingerprint() }, // fingerprint of the key we are signing with
-                parameters::key_flags_for_type(parameters::key_type::main)                   // the privileges for the main key
+                parameters::key_flags_for_type(parameters::key_type::main),                  // the privileges for the main key
+                pgp::signature_subpacket::preferred_symmetric_algorithms{{                   // the preferred symmetric encryption algorithms
+                    pgp::symmetric_key_algorithm::twofish256,
+                    pgp::symmetric_key_algorithm::aes256,
+                    pgp::symmetric_key_algorithm::aes192,
+                    pgp::symmetric_key_algorithm::aes128
+                }},
+                pgp::signature_subpacket::preferred_hash_algorithms{{                        // the preferred hashing algorithms
+                    pgp::hash_algorithm::sha512,
+                    pgp::hash_algorithm::sha384,
+                    pgp::hash_algorithm::sha256,
+                    pgp::hash_algorithm::sha224
+                }}
             }},
             pgp::signature_subpacket_set{{                                                   // unhashed subpackets
                 pgp::signature_subpacket::issuer{ main_key.key_id() }                        // key ID of the key we are signing with

@@ -2,6 +2,7 @@
 #include <cryptopp/cryptlib.h>
 #include <array>
 #include <pgp-packet/util/span.h>
+#include <pgp-packet/secure_object.h>
 
 #if (CRYPTOPP_VERSION <= 600)
     // cryptopp made the unfathomable decision to add
@@ -27,7 +28,7 @@ public:
 
     static_assert(seed_size == crypto_stream_chacha20_KEYBYTES);
 
-    deterministic_rng(const std::array<uint8_t, seed_size> &seed);
+    deterministic_rng(const pgp::secure_object<std::array<uint8_t, seed_size>> &seed);
 
     /**
      *  Generate random bytes, as documented in the base class.
@@ -55,7 +56,7 @@ private:
     static constexpr const size_t chacha20_block_size = 64;
 
     // The seed for the RNG, which is used as encryption key.
-    std::array<uint8_t, seed_size> _seed;
+    pgp::secure_object<std::array<uint8_t, seed_size>> _seed;
 
     // The index into the stream cipher stream.
     uint64_t _block_index = 0;
@@ -63,6 +64,6 @@ private:
     // Last block extracted from the cipher; used to avoid unnecessarily
     // skipping bytes when the requested sizes are not multiples of the block
     // size.
-    std::array<uint8_t, chacha20_block_size> _last_block;
-    std::array<uint8_t, chacha20_block_size>::iterator _last_block_cursor{_last_block.end()};
+    pgp::secure_object<std::array<uint8_t, chacha20_block_size>>    _last_block{};
+    std::array<uint8_t, chacha20_block_size>::iterator              _last_block_cursor{_last_block.end()};
 };

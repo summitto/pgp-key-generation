@@ -1,5 +1,6 @@
 #include <array>
 #include <stdexcept>
+#include <gsl/gsl_assert>
 #include <ctime>
 
 
@@ -45,6 +46,10 @@ namespace time_utils {
      */
     constexpr int days_in_month(int year, int month) noexcept
     {
+        // check whether a valid month number was provided
+        Expects(month >= 1);
+        Expects(month <= 12);
+
         constexpr const std::array<int, 12> days_in_month = {
             31, -1, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31
         };
@@ -91,6 +96,10 @@ namespace time_utils {
      */
     constexpr int days_in_year_before_month(int year, int month) noexcept
     {
+        // check whether a valid month number was provided
+        Expects(month >= 1);
+        Expects(month <= 12);
+
         // The number of days before some month, assuming it is NOT a leap year.
         constexpr const std::array<int, 12> days_before_nonleap = {
             0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334
@@ -115,10 +124,9 @@ namespace time_utils {
      */
     constexpr int days_since_unix_epoch(int year)
     {
-        if (year < 1970) {
-            // This will call std::terminate, but we'll have to make do.
-            throw std::out_of_range("Year less than unix epoch in days_since_unix_epoch");
-        }
+        // check whether we received a valid year
+        Expects(year >= 1970);
+        Expects(year <= 11761191);
 
         if (year < 2000) {
             // Every fourth year is a leap year, starting with 1972.

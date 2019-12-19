@@ -1,6 +1,7 @@
 #pragma once
 
 #include <boost/utility/string_view.hpp>
+#include <pgp-packet/secure_object.h>
 #include "master_key.h"
 #include <stdexcept>
 
@@ -9,7 +10,7 @@
  *  A key derived from a master key
  */
 template <size_t size>
-class derived_key : public std::array<uint8_t, size>
+class derived_key : public pgp::secure_object<std::array<uint8_t, size>>
 {
     public:
         /**

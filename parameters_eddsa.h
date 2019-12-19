@@ -20,18 +20,18 @@ namespace parameters {
         static constexpr const size_t derivation_size = secret_key_size;
 
         using public_key_t = std::array<uint8_t, public_key_size>;
-        using secret_key_t = std::array<uint8_t, secret_key_size>;
+        using secret_key_t = pgp::secure_object<std::array<uint8_t, secret_key_size>>;
 
         static computed_keys<public_key_t, secret_key_t> compute_keys(
-            const std::array<uint8_t, derivation_size> &main_key_derivation,
-            const std::array<uint8_t, derivation_size> &signing_key_derivation,
-            const std::array<uint8_t, derivation_size> &encryption_key_derivation,
-            const std::array<uint8_t, derivation_size> &authentication_key_derivation
+            const pgp::secure_object<std::array<uint8_t, derivation_size>> &main_key_derivation,
+            const pgp::secure_object<std::array<uint8_t, derivation_size>> &signing_key_derivation,
+            const pgp::secure_object<std::array<uint8_t, derivation_size>> &encryption_key_derivation,
+            const pgp::secure_object<std::array<uint8_t, derivation_size>> &authentication_key_derivation
         );
 
         static void dump_computed_keys(std::ostream &os, const computed_keys<eddsa::public_key_t, eddsa::secret_key_t> &keys);
 
-        static pgp::packet secret_key_packet(key_type type, uint32_t creation, const public_key_t &public_key, const std::array<uint8_t, secret_key_size> &secret_key);
+        static pgp::packet secret_key_packet(key_type type, uint32_t creation, const public_key_t &public_key, const pgp::secure_object<std::array<uint8_t, secret_key_size>> &secret_key);
 
         static pgp::packet user_id_signature_packet(const pgp::user_id &user_id, const pgp::secret_key &main_key, uint32_t signature_creation, uint32_t signature_expiration);
 
