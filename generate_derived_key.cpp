@@ -85,7 +85,7 @@ namespace {
             } else if (word == "rsa4096") {
                 cl = key_class::rsa4096;
             } else if (word == "rsa8192") {
-                std::cerr << "Warning: using an 8192-bit RSA key increases the change of data leakage" << std::endl;
+                std::cerr << "Warning: using an 8192-bit RSA key increases the chance of data leakage" << std::endl;
                 std::cerr << "Maximum recommended RSA key-size is 4096 bits" << std::endl;
                 cl = key_class::rsa8192;
             } else {
