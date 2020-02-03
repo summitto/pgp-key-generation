@@ -42,12 +42,12 @@ class master_key : public pgp::secure_object<std::array<uint8_t, crypto_kdf_KEYB
         }
 
         /**
-         *  Perform asummetric decryption on the master key
+         *  Perform authenticated decryption on the master key
          *
          *  @param  ciphertext  The encrypted data to decrypt
          *  @param  passphrase  The passphrase to use
          */
-        void decrypt_asymmetric(const std::array<uint8_t, encrypted_size> &ciphertext, const secure_string &passphrase)
+        void decrypt(const std::array<uint8_t, encrypted_size> &ciphertext, const secure_string &passphrase)
         {
             // extract the used nonce, generate the key and create a checker sentry
             // the extended hash and key used for decryption and an error checker
@@ -60,12 +60,12 @@ class master_key : public pgp::secure_object<std::array<uint8_t, crypto_kdf_KEYB
         }
 
         /**
-         *  Perform asymmetric encryption on the master key
+         *  Perform authenticated encryption on the master key
          *
          *  @param  passphrase  The passphrase to use
-         *  @return The asymmetrically encrypted result, complete with MAC and salt
+         *  @return The encrypted result, complete with MAC and salt
          */
-        std::array<uint8_t, encrypted_size> encrypt_asymmetric(const secure_string &passphrase)
+        std::array<uint8_t, encrypted_size> encrypt(const secure_string &passphrase) const
         {
             // the 8-byte salt, the encryption key to use and the result
             nonce                               nonce   {                                                           };
@@ -81,11 +81,11 @@ class master_key : public pgp::secure_object<std::array<uint8_t, crypto_kdf_KEYB
         }
 
         /**
-         *  Perform asymmetric encryption on the master key
+         *  Perform authenticated encryption on the master key
          *
-         *  @return The asymmetrically encrypted result, complete with MAC and salt
+         *  @return The encrypted result, complete with MAC and salt
          */
-        std::array<uint8_t, encrypted_size> encrypt_asymmetric()
+        std::array<uint8_t, encrypted_size> encrypt() const
         {
             // the encryption passphrase
             secure_string passphrase;
@@ -104,7 +104,7 @@ class master_key : public pgp::secure_object<std::array<uint8_t, crypto_kdf_KEYB
             }
 
             // encrypt the key with the given passphrase
-            return encrypt_asymmetric(passphrase);
+            return encrypt(passphrase);
         }
 
         /**

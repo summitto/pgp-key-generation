@@ -380,7 +380,7 @@ int main(int argc, const char **argv)
             }
 
             // decrypt the given recovery seed
-            master.decrypt_asymmetric(recovery_data, passphrase);
+            master.decrypt(recovery_data, passphrase);
         } else {
             // the dice result
             secure_string dice_numbers;
@@ -487,7 +487,7 @@ int main(int argc, const char **argv)
                 return 0;
             } else if (yes.starts_with(input)) {
                 // encrypt the master key to generate the encrypted recovery seed
-                auto encrypted = master.encrypt_asymmetric();
+                auto encrypted = master.encrypt();
 
                 // we will now write the recovery seed
                 std::cout << "Please write down the following recovery seed: ";
