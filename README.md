@@ -97,6 +97,13 @@ page](https://github.com/Nitrokey/nitrokey-start-firmware/releases).
 Be aware that flashing firmware will erase keys currently residing on the
 device.
 
+## Warnings and limitations
+
+To avoid private key data from leaking, whenever possible, secret data is
+prevented from being swapped to disk. This is not guaranteed to work reliably
+on all platforms, however so it is strongly recommended to completely disable
+all swap partitions before using the tool.
+
 ## Static analysis
 
 ### CppCheck

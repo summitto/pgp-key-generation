@@ -1,6 +1,10 @@
 #pragma once
 
+#include "util/array.h"
+#include "encryption_key.h"
 #include "secure_string.h"
+#include "errors.h"
+#include "nonce.h"
 #include <functional>
 #include <algorithm>
 #include <iostream>
@@ -15,6 +19,20 @@ class master_key : public pgp::secure_object<std::array<uint8_t, crypto_kdf_KEYB
 {
     public:
         /**
+         *  The raw size of the exposed nonce
+         */
+        constexpr static const size_t nonce_size    { 8 };
+
+        /**
+         *  The raw size of the authenticated cipher text
+         */
+        constexpr static const size_t encrypted_size {
+            crypto_kdf_KEYBYTES         +
+            crypto_secretbox_MACBYTES   +
+            nonce_size
+        };
+
+        /**
          *  Constructor
          */
         master_key()
@@ -24,34 +42,69 @@ class master_key : public pgp::secure_object<std::array<uint8_t, crypto_kdf_KEYB
         }
 
         /**
-         *  Perform symmetric (de|en)cryption on the key
+         *  Perform authenticated decryption on the master key
          *
-         *  @return The (de|en)crypted master key
+         *  @param  ciphertext  The encrypted data to decrypt
+         *  @param  passphrase  The passphrase to use
          */
-        master_key encrypt_symmetric()
+        void decrypt(const std::array<uint8_t, encrypted_size> &ciphertext, const secure_string &passphrase)
         {
-            // the symmetric encryption key
-            secure_string key;
+            // extract the used nonce, generate the key and create a checker sentry
+            // the extended hash and key used for decryption and an error checker
+            nonce               nonce   { util::array::truncated<nonce_size>(ciphertext)            };
+            encryption_key      key     { nonce.extend_to<encryption_key::nonce_size>(), passphrase };
+            error_checker<0>    checker {                                                           };
 
-            // keep going until we get a key
-            while (key.empty()) {
-                // read in a symmetric encryption key
-                std::cout << "Enter symmetric encryption key: ";
-                std::getline(std::cin, key);
-            }
+            // decrypt the input using the generated key and nonce
+            checker << crypto_secretbox_open_easy(data(), ciphertext.data() + nonce_size, ciphertext.size() - nonce_size, nonce.extend_to<crypto_secretbox_NONCEBYTES>().data(), key.data());
+        }
 
-            // the output of the hash function we use as kdf and the new master key
-            pgp::secure_object<std::array<uint8_t, 32>> key_hash;
-            master_key                                  result;
+        /**
+         *  Perform authenticated encryption on the master key
+         *
+         *  @param  passphrase  The passphrase to use
+         *  @return The encrypted result, complete with MAC and salt
+         */
+        std::array<uint8_t, encrypted_size> encrypt(const secure_string &passphrase) const
+        {
+            // the 8-byte salt, the encryption key to use and the result
+            nonce                               nonce   {                                                           };
+            encryption_key                      key     { nonce.extend_to<encryption_key::nonce_size>(), passphrase };
+            std::array<uint8_t, encrypted_size> result  {                                                           };
 
-            // generate the hash from the key
-            crypto_hash_sha256(key_hash.data(), reinterpret_cast<const uint8_t*>(key.data()), key.size());
-
-            // xor the key with the generated hash
-            std::transform(begin(), end(), key_hash.begin(), result.begin(), std::bit_xor<uint8_t>());
+            // write the salt to the buffer and then append the authenticated message
+            std::copy(nonce.begin(), nonce.end(), result.begin());
+            crypto_secretbox_easy(result.data() + nonce_size, data(), size(), nonce.extend_to<crypto_secretbox_NONCEBYTES>().data(), key.data());
 
             // return the result
             return result;
+        }
+
+        /**
+         *  Perform authenticated encryption on the master key
+         *
+         *  @return The encrypted result, complete with MAC and salt
+         */
+        std::array<uint8_t, encrypted_size> encrypt() const
+        {
+            // the encryption passphrase
+            secure_string passphrase;
+
+            // keep going until we get a key
+            while (!std::cin.eof() && passphrase.empty()) {
+                // read in a symmetric encryption key
+                std::cout << "Enter encryption passphrase: ";
+                std::getline(std::cin, passphrase);
+            }
+
+            // did we get a valid passphrase?
+            if (std::cin.eof()) {
+                // cannot perform encryption without a passphrase
+                throw std::runtime_error{ "No passphrase provided, unable to create encrypted recovery seed" };
+            }
+
+            // encrypt the key with the given passphrase
+            return encrypt(passphrase);
         }
 
         /**
