@@ -279,6 +279,7 @@ def generate_initial_key(workdir, exec_name, appinput):
     with KeygenApplication(exec_name, keyfile, appinput, debug_dump_keys=True) as app:
         app.write_line("")  # generate a new key, no recovery seed
         app.write_line(appinput.dice)
+        app.write_line("yes")
         app.write_line(appinput.key)
 
         text = app.read_all()

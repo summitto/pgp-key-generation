@@ -14,6 +14,7 @@
 #include "parameters_eddsa.h"
 #include "parameters_ecdsa.h"
 #include "parameters_rsa.h"
+#include "util/base_conversion.h"
 
 namespace {
 
@@ -320,6 +321,21 @@ namespace {
  */
 int main(int argc, const char **argv)
 {
+    /**
+     *  The alphabet to use for encoding
+     *  and decoding buffers. This contains
+     *  36 characters, resulting in a bas36
+     *  encoding scheme.
+     */
+    using alphabet = util::alphabet<
+        'a', 'b', 'c', 'd', 'e', 'f',
+        'g', 'h', 'i', 'j', 'k', 'l',
+        'm', 'n', 'o', 'p', 'q', 'r',
+        's', 't', 'u', 'v', 'w', 'x',
+        'y', 'z', '0', '1', '2', '3',
+        '4', '5', '6', '7', '8', '9'
+    >;
+
     try
     {
         // initialize libsodium
@@ -342,9 +358,13 @@ int main(int argc, const char **argv)
         // concatenate to a valid address
         std::string user_id = *options.user_name + " <" + *options.user_email + ">";
 
+        // sizes for encoded recovery seeds
+        constexpr const size_t unauthenticated_recovery_seed_size   = util::encoded_length<master.size(), alphabet::base>();
+        constexpr const size_t authenticated_recovery_seed_size     = util::encoded_length<master_key::encrypted_size, alphabet::base>();
+
         // read the recovery seed
         secure_string recovery_seed{"invalid"};
-        while (!std::cin.eof() && !recovery_seed.empty() && recovery_seed.size() != crypto_kdf_KEYBYTES * 2 && recovery_seed.size() != master_key::encrypted_size * 2) {
+        while (!std::cin.eof() && !recovery_seed.empty() && recovery_seed.size() != unauthenticated_recovery_seed_size && recovery_seed.size() != authenticated_recovery_seed_size) {
             // don't have a valid recovery seed yet
             std::cout << "Enter recovery seed, or press enter to generate a new key: ";
             std::getline(std::cin, recovery_seed);
@@ -357,20 +377,20 @@ int main(int argc, const char **argv)
         //
         // If no seed was entered, we need to generate a new key, and of course
         // ask the user for a passphrase to encrypt it.
-        if (recovery_seed.size() == crypto_kdf_KEYBYTES * 2) {
+        if (recovery_seed.size() == unauthenticated_recovery_seed_size) {
             // this recovery seed does not include any message-authentication-code
             // or salt to verify that it is correct, incorrect input will simply
             // result in a completely different key, which will still work, but
             // has a different key id and is thus a completely different key
             std::cout << "You are using an unauthenticated recovery code, any mistake in the recovery code will result" << std::endl;
-            std::cout << "in a different key, with no diagnostic being emitted. Please check the key id manually." << std::endl;
+            std::cout << "in a different key, with no diagnostic being emitted. Please verify the key id manually." << std::endl;
 
-            // parse and decrypt into the master key
-            master = convert_string_to_numbers<crypto_kdf_KEYBYTES>(recovery_seed);
-        } else if (recovery_seed.size() == master_key::encrypted_size * 2) {
+            // decode into the master key
+            master = util::decode<alphabet, unauthenticated_recovery_seed_size>(recovery_seed);
+        } else if (recovery_seed.size() == authenticated_recovery_seed_size) {
             // parse the recovery seed
-            auto            recovery_data   { convert_string_to_numbers<master_key::encrypted_size>(recovery_seed)  };
-            secure_string   passphrase      {                                                                       };
+            auto            recovery_data   { util::decode<alphabet, authenticated_recovery_seed_size>(recovery_seed)   };
+            secure_string   passphrase      {                                                                           };
 
             // keep going until we get a passphrase
             while (passphrase.empty()) {
@@ -487,30 +507,22 @@ int main(int argc, const char **argv)
                 return 0;
             } else if (yes.starts_with(input)) {
                 // encrypt the master key to generate the encrypted recovery seed
-                auto encrypted = master.encrypt();
+                // and then encode it using the specified alphabet to make it
+                // human-readable.
+                auto encrypted  = master.encrypt();
+                auto encoded    = util::encode<alphabet>(encrypted);
 
                 // we will now write the recovery seed
                 std::cout << "Please write down the following recovery seed: ";
-
-                // iterate over the encrypted data
-                for (uint8_t number : encrypted) {
-                    // write it as hex
-                    std::cout << std::hex << std::setfill('0') << std::setw(2) << (int)number;
-                }
-
-                // end it with a newline
+                std::cout.write(encoded.data(), encoded.size());
                 std::cout << std::endl;
             } else {
+                // encode the master key to get human-readable output
+                auto encoded    = util::encode<alphabet>(master);
+
                 // we will now write the recovery seed
                 std::cout << "Please write down the following recovery seed: ";
-
-                // iterate over the master key
-                for (uint8_t number : master) {
-                    // write it as hex
-                    std::cout << std::hex << std::setfill('0') << std::setw(2) << (int)number;
-                }
-
-                // end it with a newline
+                std::cout.write(encoded.data(), encoded.size());
                 std::cout << std::endl;
             }
         }
