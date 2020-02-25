@@ -15,70 +15,50 @@
 namespace mnemonics {
 
     /**
-     *  A language to write or read mnemonics
+     *  Alias type for a mnemonic word list
      */
-    enum class language : uint8_t
-    {
-        chinese_simplified,
-        chinese_traditional,
-        czech,
-        english,
-        french,
-        italian,
-        japanese,
-        korean,
-        spanish
+    using word_list_t = std::array<std::string_view, 2048>;
+
+    /**
+     *  The available langauges and their
+     *  word lists.
+     */
+    const static std::array<std::pair<std::string_view, const word_list_t&>, 9> languages{
+        std::make_pair("Chinese (simplified)",   chinese_simplified),
+        std::make_pair("Chinese (traditional)",  chinese_traditional),
+        std::make_pair("Czech",                  czech),
+        std::make_pair("English",                english),
+        std::make_pair("French",                 french),
+        std::make_pair("Italian",                italian),
+        std::make_pair("Japanese",               japanese),
+        std::make_pair("Korean",                 korean),
+        std::make_pair("Spanish",                spanish)
     };
 
     /**
      *  Retrieve a description for the language
      *
-     *  @param  language    The language to describe
+     *  @param  index   Index for the language to describe
      *  @return Description for the given language
+     *  @throws std::out_of_range
      */
-    constexpr std::string_view language_description(language language) noexcept
+    constexpr std::string_view language_description(size_t index) noexcept
     {
-        // what language are we interested in?
-        switch (language) {
-            case language::chinese_simplified:  return "Chinese (simplified)";
-            case language::chinese_traditional: return "Chinese (traditional)";
-            case language::czech:               return "Czech";
-            case language::english:             return "English";
-            case language::french:              return "French";
-            case language::italian:             return "Italian";
-            case language::japanese:            return "Japanese";
-            case language::korean:              return "Korean";
-            case language::spanish:             return "Spanish";
-        }
-
-        // an invalid enum value was given
-        return "Unknown (invalid language)";
+        // lookup the language and retrieve the description
+        return languages.at(index).first;
     }
 
     /**
      *  Retrieve the word list for a specific language
      *
-     *  @param  language    The language to find the word list for
+     *  @param  index   The index of the language to get the word list for
      *  @return The word list
      *  @throws std::out_of_range
      */
-    constexpr const std::array<std::string_view, 2048> &word_list(language language)
+    constexpr const word_list_t &word_list(size_t index)
     {
-        // what language are we interested in?
-        switch (language) {
-            case language::chinese_simplified:  return chinese_simplified;
-            case language::chinese_traditional: return chinese_traditional;
-            case language::czech:               return czech;
-            case language::english:             return english;
-            case language::french:              return french;
-            case language::italian:             return italian;
-            case language::japanese:            return japanese;
-            case language::korean:              return korean;
-            case language::spanish:             return spanish;
-        }
-
-        // did not find the requested language
-        throw std::out_of_range{ "No such language" };
+        // lookup the language and retrieve the word list
+        return languages.at(index).second;
     }
 
 }

@@ -49,7 +49,7 @@ namespace util {
     constexpr size_t encoded_length()
     {
         // the maximum value for this binary number size
-        number_type<size> value{ -1 };
+        auto value{ std::numeric_limits<number_type<size>>::max() };
 
         // the number of iterations required
         size_t iterations{ 0 };

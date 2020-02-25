@@ -21,22 +21,17 @@ namespace mnemonics {
     /**
      *  Encode a buffer to a mnemonic in a given language
      *
-     *  @param  language    The language to use for the word list
+     *  @param  words       The word list for encoding
      *  @param  buffer      The buffer to encode
      *  @return List of words in the requested language
      *  @throws std::out_of_range
      */
     template <size_t size>
-    auto encode(language language, const std::array<uint8_t, size> &buffer)
+    auto encode(const word_list_t &words, const std::array<uint8_t, size> &buffer)
     {
-        // retrieve the word list and determine the encoded size
-        // of the buffer, we have 2048 words, which uses 11 bits
-        const auto                                  &words          { word_list(language)           };
-        constexpr size_t                            encoded_size    { word_count<size>              };
-
         // the number representing the input and the result to encode to
-        util::number_type<size>                     number          { util::array_to_number(buffer) };
-        std::array<std::string_view, encoded_size>  result;
+        util::number_type<size>                         number          { util::array_to_number(buffer) };
+        std::array<std::string_view, word_count<size>>  result;
 
         // fill the entire result
         for (auto &encoded : boost::adaptors::reverse(result)) {
@@ -57,17 +52,16 @@ namespace mnemonics {
      *  Decode a given mnemonic word list back to the
      *  original buffer.
      *
-     *  @param  language    The language to use for the word list
+     *  @param  words       The word list for decoding
      *  @param  list        The list of words to decode
      *  @return The decoded buffer
      *  @throws std::out_of_range
      */
     template <size_t size, size_t decoded_size = buffer_size<size>>
-    auto decode(language language, const std::array<std::string_view, size> &list)
+    auto decode(const word_list_t &words, const std::array<std::string_view, size> &list)
     {
-        // the word list to work with and the number to decode to
-        const auto                      &words  { word_list(language)   };
-        util::number_type<decoded_size> number  {                       };
+        // the number to decode to
+        util::number_type<decoded_size> number;
 
         // process all words
         for (auto word : list) {

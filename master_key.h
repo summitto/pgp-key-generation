@@ -155,44 +155,29 @@ class master_key : public pgp::secure_object<std::array<uint8_t, crypto_kdf_KEYB
          *
          *  @return The language to use
          */
-        static mnemonics::language query_language()
+        static const mnemonics::word_list_t &query_language()
         {
             // print informational output for selecting the language
             std::cout << "Select a langauge for mnemonic conversion, the following options are available:" << std::endl;
-            std::cout << "  " << static_cast<int>(mnemonics::language::chinese_simplified)  << ": " << mnemonics::language_description(mnemonics::language::chinese_simplified) << std::endl;
-            std::cout << "  " << static_cast<int>(mnemonics::language::chinese_traditional) << ": " << mnemonics::language_description(mnemonics::language::chinese_traditional)<< std::endl;
-            std::cout << "  " << static_cast<int>(mnemonics::language::czech)               << ": " << mnemonics::language_description(mnemonics::language::czech)              << std::endl;
-            std::cout << "  " << static_cast<int>(mnemonics::language::english)             << ": " << mnemonics::language_description(mnemonics::language::english)            << std::endl;
-            std::cout << "  " << static_cast<int>(mnemonics::language::french)              << ": " << mnemonics::language_description(mnemonics::language::french)             << std::endl;
-            std::cout << "  " << static_cast<int>(mnemonics::language::italian)             << ": " << mnemonics::language_description(mnemonics::language::italian)            << std::endl;
-            std::cout << "  " << static_cast<int>(mnemonics::language::japanese)            << ": " << mnemonics::language_description(mnemonics::language::japanese)           << std::endl;
-            std::cout << "  " << static_cast<int>(mnemonics::language::korean)              << ": " << mnemonics::language_description(mnemonics::language::korean)             << std::endl;
-            std::cout << "  " << static_cast<int>(mnemonics::language::spanish)             << ": " << mnemonics::language_description(mnemonics::language::spanish)            << std::endl;
+
+            // print all available languages
+            for (size_t i = 0; i < mnemonics::languages.size(); ++i) {
+                std::cout << "  " << i << ": " << mnemonics::languages[i].first << std::endl;
+            }
+
+            // the selected language
+            size_t language{ std::numeric_limits<size_t>::max() };
 
             // keep going until we get a language
-            while (!std::cin.eof()) {
-                // the language to read
-                // note: cannot use uint8_t due to
-                // stream treating it like a char
-                uint16_t language;
-
+            while (!std::cin.eof() && language > mnemonics::languages.size()) {
                 // read language from standard input
                 std::cout << "Enter mnemonic language: ";
                 std::cin >> language;
                 std::cin.ignore(1, '\n');
-
-                // ensure that we have a valid option
-                if (language > static_cast<uint8_t>(mnemonics::language::spanish)) {
-                    // try again
-                    continue;
-                }
-
-                // convert input to mnemonic
-                return static_cast<mnemonics::language>(language);
             }
 
-            // could not read valid language
-            throw std::runtime_error{ "Unable to read mnemonic language" };
+            // retrieve word list for requested mnemonic
+            return mnemonics::word_list(language);
         }
 
         /**
