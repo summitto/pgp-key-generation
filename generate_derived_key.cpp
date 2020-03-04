@@ -14,6 +14,7 @@
 #include "parameters_eddsa.h"
 #include "parameters_ecdsa.h"
 #include "parameters_rsa.h"
+#include "util/base_conversion.h"
 
 namespace {
 
@@ -207,6 +208,41 @@ namespace {
     }
 
     /**
+     *  Parse a boolean from a stream
+     */
+    std::istream &operator>>(std::istream &stream, bool &result) noexcept
+    {
+        // the inputs to be used for true and false
+        constexpr boost::string_view yes { "yes" };
+        constexpr boost::string_view no  { "no"  };
+
+        // read the user input
+        std::string input { "invalid" };
+        std::getline(stream, input);
+
+        // convert the input to lowercase
+        std::transform(input.begin(), input.end(), input.begin(), [](unsigned char c) {
+            // convert the character to lowercase
+            return std::tolower(c);
+        });
+
+        // did the user select yes (default)
+        if (input.empty() || yes.starts_with(input)) {
+            // the user either typed 'yes' or did not select anything
+            result = true;
+        } else if (no.starts_with(input)) {
+            // the user typed no
+            result = false;
+        } else {
+            // no parse, set the fail bit
+            stream.setstate(std::ios_base::failbit);
+        }
+
+        // return the stream for chaining
+        return stream;
+    }
+
+    /**
      *  The parsed program options.
      */
     struct Options {
@@ -342,46 +378,14 @@ int main(int argc, const char **argv)
         // concatenate to a valid address
         std::string user_id = *options.user_name + " <" + *options.user_email + ">";
 
-        // read the recovery seed
-        secure_string recovery_seed{"invalid"};
-        while (!std::cin.eof() && !recovery_seed.empty() && recovery_seed.size() != crypto_kdf_KEYBYTES * 2 && recovery_seed.size() != master_key::encrypted_size * 2) {
-            // don't have a valid recovery seed yet
-            std::cout << "Enter recovery seed, or press enter to generate a new key: ";
-            std::getline(std::cin, recovery_seed);
-        }
+        // check if we want to recover an existing key
+        auto recovered = master.try_recovery();
 
         static_assert(crypto_kdf_KEYBYTES == crypto_generichash_BYTES);
 
-        // At this point we have two options. If a recovery seed was entered,
-        // we will decrypt the seed and use it as our master key.
-        //
-        // If no seed was entered, we need to generate a new key, and of course
-        // ask the user for a passphrase to encrypt it.
-        if (recovery_seed.size() == crypto_kdf_KEYBYTES * 2) {
-            // this recovery seed does not include any message-authentication-code
-            // or salt to verify that it is correct, incorrect input will simply
-            // result in a completely different key, which will still work, but
-            // has a different key id and is thus a completely different key
-            std::cout << "You are using an unauthenticated recovery code, any mistake in the recovery code will result" << std::endl;
-            std::cout << "in a different key, with no diagnostic being emitted. Please check the key id manually." << std::endl;
-
-            // parse and decrypt into the master key
-            master = convert_string_to_numbers<crypto_kdf_KEYBYTES>(recovery_seed);
-        } else if (recovery_seed.size() == master_key::encrypted_size * 2) {
-            // parse the recovery seed
-            auto            recovery_data   { convert_string_to_numbers<master_key::encrypted_size>(recovery_seed)  };
-            secure_string   passphrase      {                                                                       };
-
-            // keep going until we get a passphrase
-            while (passphrase.empty()) {
-                // read in a symmetric encryption key
-                std::cout << "Enter encryption passphrase: ";
-                std::getline(std::cin, passphrase);
-            }
-
-            // decrypt the given recovery seed
-            master.decrypt(recovery_data, passphrase);
-        } else {
+        // if we haven't recoverd an existing key, we will
+        // make a new one, and we want some additional entropy
+        if (!recovered) {
             // the dice result
             secure_string dice_numbers;
             secure_string dice_input;
@@ -390,7 +394,7 @@ int main(int argc, const char **argv)
             dice_numbers.reserve(128);
 
             // keep reading until we are done
-            while (dice_numbers.size() < 100) {
+            while (std::cin && dice_numbers.size() < 100) {
                 // generate key from dice throw
                 std::cout << "Enter dice throw result (" << (100 - dice_numbers.size()) << " remaining): ";
                 std::getline(std::cin, dice_input);
@@ -406,6 +410,12 @@ int main(int argc, const char **argv)
                     // add to the dice numbers
                     dice_numbers.push_back(roll);
                 }
+            }
+
+            // check whether the user aborted input
+            if (!std::cin) {
+                std::cerr << "Dice roll aborted" << std::endl;
+                return 1;
             }
 
             // hash dice numbers together with random key
@@ -455,64 +465,9 @@ int main(int argc, const char **argv)
         pgp::secure_object<std::ofstream>{ *options.output_file }.write(reinterpret_cast<const char*>(out_data.data()), encoder.size());
 
         // if we don't have a seed, we created a new key, so we must show the seed output
-        if (recovery_seed.empty()) {
-            // which output mode does the user want, encrypted or unencrypted?
-            std::cout << "Key generation complete, we will now provide a recovery key which can be used" << std::endl;
-            std::cout << "to recreate the same key. This recovery can be encrypted with a MAC to ensure" << std::endl;
-            std::cout << "confidentiality and integrity. " << std::flush;
-
-            // the inputs to be used for true and false
-            constexpr boost::string_view yes { "yes" };
-            constexpr boost::string_view no  { "no"  };
-
-            // the input we are reading
-            std::string input { "invalid" };
-
-            // check whether we have valid input
-            while (!std::cin.eof() && !yes.starts_with(input) && !no.starts_with(input)) {
-                // input not yet valid read again
-                std::cout << "Encrypt the key? [Y/n]: ";
-                std::getline(std::cin, input);
-
-                // convert the input to lowercase
-                std::transform(input.begin(), input.end(), input.begin(), [](unsigned char c) {
-                    // convert the character to lowercase
-                    return std::tolower(c);
-                });
-            }
-
-            // did the user end the input
-            if (std::cin.eof()) {
-                // user does not want to give us input
-                return 0;
-            } else if (yes.starts_with(input)) {
-                // encrypt the master key to generate the encrypted recovery seed
-                auto encrypted = master.encrypt();
-
-                // we will now write the recovery seed
-                std::cout << "Please write down the following recovery seed: ";
-
-                // iterate over the encrypted data
-                for (uint8_t number : encrypted) {
-                    // write it as hex
-                    std::cout << std::hex << std::setfill('0') << std::setw(2) << (int)number;
-                }
-
-                // end it with a newline
-                std::cout << std::endl;
-            } else {
-                // we will now write the recovery seed
-                std::cout << "Please write down the following recovery seed: ";
-
-                // iterate over the master key
-                for (uint8_t number : master) {
-                    // write it as hex
-                    std::cout << std::hex << std::setfill('0') << std::setw(2) << (int)number;
-                }
-
-                // end it with a newline
-                std::cout << std::endl;
-            }
+        if (!recovered) {
+            // we created a new key, print recovery seed
+            master.print_recovery_seed();
         }
 
         // done generating
