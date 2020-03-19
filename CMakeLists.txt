@@ -38,7 +38,7 @@ target_link_libraries(generate_derived_key pgp-packet)
 target_link_libraries(generate_derived_key Boost::program_options)
 
 # Add CryptoPP
-target_link_libraries(generate_derived_key ${CRYPTOPP_LIBRARIES})
+target_link_libraries(generate_derived_key CryptoPP::CryptoPP)
 
 # I don't know whether this is the earliest version that supports concepts, but
 # at least 8.2.1 supports it.
