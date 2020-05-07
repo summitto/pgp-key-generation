@@ -8,11 +8,7 @@ on:
 
 jobs:
   appleclang:
-<<<<<<< HEAD
     name: appleclang-11.0.3
-=======
-    name: AppleClang-11.0.3
->>>>>>> 448f320... Build and test on latest ubuntu
     runs-on: macos-latest
     env:
       DEVELOPER_DIR: /Applications/Xcode_11.4.app/Contents/Developer

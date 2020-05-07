@@ -8,8 +8,6 @@ project(pgp-test
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(Boost_NO_BOOST_CMAKE ON)
-set(Boost_DEBUG ON)
 
 find_package(pgp-packet REQUIRED)
 find_package(Boost      REQUIRED
