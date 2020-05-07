@@ -498,7 +498,7 @@ def run_test(exec_name, key_class):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("exec_name", help="generate_derived_key executable")
-    parser.add_argument("-n", "--num_tests", required=False, type=int, default=200,
+    parser.add_argument("-n", "--num_tests", required=False, type=int, default=5,
                         help="Number of repetitions to run for the tests.")
 
     args = parser.parse_args()
