@@ -1,4 +1,4 @@
-name: "build and test"
+name: "pgp-key-generation CI"
 
 on:
   push:
@@ -8,24 +8,56 @@ on:
 
 jobs:
   appleclang:
+<<<<<<< HEAD
     name: appleclang-11.0.3
+=======
+    name: AppleClang-11.0.3
+>>>>>>> 448f320... Build and test on latest ubuntu
     runs-on: macos-latest
     env:
       DEVELOPER_DIR: /Applications/Xcode_11.4.app/Contents/Developer
 
     steps:
-    - uses: actions/checkout@v2
-    - name: dependencies
-      run: brew install boost cryptopp
-    - name: pgp-packet-library
-      run: |
-        git clone https://github.com/summitto/pgp-packet-library.git
-        git -C pgp-packet-library submodule update --init --recursive
-        cmake -B pgp-packet-library/build -S pgp-packet-library -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=ci-install
-        cmake --build pgp-packet-library/build --target install
-    - name: cmake
-      run: cmake -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH=ci-install
-    - name: build
-      run: cmake --build build
-    - name: test
-      run: make -C build test
+      - uses: actions/checkout@v2
+      - name: dependencies
+        run: brew install boost cryptopp
+      - name: pgp-packet-library
+        run: |
+          git clone https://github.com/summitto/pgp-packet-library.git
+          git -C pgp-packet-library submodule update --init --recursive
+          cmake -B pgp-packet-library/build -S pgp-packet-library -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=ci-install
+          cmake --build pgp-packet-library/build --target install
+      - name: cmake
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH=ci-install
+      - name: build
+        run: cmake --build build
+      - name: test
+        run: make -C build test
+
+  clang:
+    name: clang-9
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v2
+      - name: dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsodium-dev libcrypto++-dev
+          pip3 install dataclasses
+          cd ${BOOST_ROOT_1_72_0}
+          sudo ./bootstrap.sh
+          sudo ./b2 install --with-program_options -j2
+          cd -
+      - name: pgp-packet-library
+        run: |
+          git clone https://github.com/summitto/pgp-packet-library.git
+          git -C pgp-packet-library submodule update --init --recursive
+          cmake -B pgp-packet-library/build -S pgp-packet-library -DCMAKE_C_COMPILER=clang-9 -DCMAKE_CXX_COMPILER=clang++-9 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=ci-install
+          cmake --build pgp-packet-library/build --target install
+      - name: cmake
+        run: cmake -B build -DCMAKE_C_COMPILER=clang-9 -DCMAKE_CXX_COMPILER=clang++-9 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH=ci-install
+      - name: build
+        run: cmake --build build
+      - name: test
+        run: make -C build test
