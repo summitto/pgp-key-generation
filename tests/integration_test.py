@@ -44,6 +44,7 @@ class AppInput:
     key_creation: str
 
     # Generate an input specification given a key type
+    @staticmethod
     def generate(key_type):
         values = generateInput()
         return AppInput(
@@ -131,7 +132,7 @@ class Application:
         return line
 
     def read_all(self):
-        lines = self._proc.stdout.read().decode("utf8").split("\n")
+        lines = self._proc.communicate()[0].decode("utf8").split("\n")
         if self._line_filter is None:
             return "\n".join(lines)
         else:
@@ -280,8 +281,8 @@ def generate_initial_key(workdir, exec_name, appinput):
         app.write_line("")  # generate a new key, no recovery seed
         app.write_line(appinput.dice)
         app.write_line("yes")
+        app.write_line("base36")
         app.write_line(appinput.key)
-
         text = app.read_all()
         idx1 = text.find("write down the following recovery seed:")
         idx2 = text.rfind("write down the following recovery seed:")
@@ -497,7 +498,7 @@ def run_test(exec_name, key_class):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("exec_name", help="generate_derived_key executable")
-    parser.add_argument("-n", "--num_tests", required=False, type=int, default=200,
+    parser.add_argument("-n", "--num_tests", required=False, type=int, default=5,
                         help="Number of repetitions to run for the tests.")
 
     args = parser.parse_args()

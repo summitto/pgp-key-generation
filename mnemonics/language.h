@@ -23,17 +23,17 @@ namespace mnemonics {
      *  The available langauges and their
      *  word lists.
      */
-    const static std::array<std::pair<std::string_view, const word_list_t&>, 9> languages{
-        std::make_pair("Chinese (simplified)",   chinese_simplified),
-        std::make_pair("Chinese (traditional)",  chinese_traditional),
-        std::make_pair("Czech",                  czech),
-        std::make_pair("English",                english),
-        std::make_pair("French",                 french),
-        std::make_pair("Italian",                italian),
-        std::make_pair("Japanese",               japanese),
-        std::make_pair("Korean",                 korean),
-        std::make_pair("Spanish",                spanish)
-    };
+    constexpr const std::array<std::pair<std::string_view, const word_list_t&>, 9> languages{{
+        {"Chinese (simplified)",   chinese_simplified},
+        {"Chinese (traditional)",  chinese_traditional},
+        {"Czech",                  czech},
+        {"English",                english},
+        {"French",                 french},
+        {"Italian",                italian},
+        {"Japanese",               japanese},
+        {"Korean",                 korean},
+        {"Spanish",                spanish}
+    }};
 
     /**
      *  Retrieve a description for the language

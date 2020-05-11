@@ -1,5 +1,7 @@
 # !!! EXPERIMENTAL - use at your own risk !!!
 
+![pgp-key-generation CI](https://github.com/summitto/pgp-key-generation/workflows/pgp-key-generation%20CI/badge.svg)
+
 # PGP key generation
 
 This repository provides the source for a utility used for creating PGP keys using
@@ -22,6 +24,12 @@ The integration testing script, which can be run using `make test` in
 the build folder, additionally requires Python 3.7 (or 3.6 with
 the `dataclasses` library) and GnuPG to be installed.
 
+| Compiler      | Minimum version |
+| :---          |     :---:       |
+| Apple clang   | 11.0.3          |
+| clang         | 9.0.0           |
+| gcc           | 8.0.0           |
+
 ## Generating new keys
 
 Please read all of the steps below thoroughly before actually starting to
@@ -33,44 +41,43 @@ generate a key.
   https://github.com/summitto/raspbian_setup
 - install `GnuPG` on your main device. Optionally, `scdaemon`, `libccid` and
   `pcscd` may need to be installed.
+- raise the lockable memory limit to at least 1M in `/etc/security/limits.conf` and get a new session
 - run key generation utility, for example using:
-
-    generate_derived_key -o keyfile -t eddsa -n "firstname lastname" -e email
-    -s "2011-01-01 01:01:01" -x "2099-09-09 09:09:09" -k "12345678" -c "2011-01-01
-    01:01:01"
-
+```
+generate_derived_key -o keyfile -t eddsa -n "firstname lastname" -e email -s "2011-01-01 01:01:01" -x "2099-09-09 09:09:09" -k "12345678" -c "2011-01-01 01:01:01"
+```
 - The program will either generate a new encrypted seed using dice input, or you
   can use an existing encrypted seed to generate your key. If you generate a
   new seed, store it in a secure place.  
-- import the generated key file into gpg with "gpg --import file". 
+- import the generated key file into gpg with `gpg --import ${KEYFILE}`. 
 
 If you have a smart card, you can import the private key as follows:
-
 - insert the smart card (e.g. Yubikey or Nitrokey)
-- run gpg --key-edit keyid
-- toggle
-- key 1
-- keytocard
-- key 1
-- key 2
-- keytocard
-- key 2
-- key 3
-- keytocard
-- save
-- gpg --export publickeyfile
-- gpg --delete-secret-and-public-keys keyid
+- run `gpg --key-edit keyid` and provide the next input
+```
+toggle
+key 1
+keytocard
+key 1
+key 2
+keytocard
+key 2
+key 3
+keytocard
+save
+```
+- export your public key with `gpg --export ${KEYID} > ${KEYFILE}`
+- delete the keys from gpg with `gpg --delete-secret-and-public-keys ${KEYID}`
 - copy the public key file to a usb stick and import it on your target computer
 - insert the smart card in the target computer
-- run gpg --card-edit
-- fetch
+- run `gpg --card-edit` and `fetch`
 
 You should now have a functional key. You can test it as follows:
 
-- gpg --list-keys 
-- echo helloworld > test.txt
-- gpg -r [key id] --encrypt test.txt
-- gpg --decrypt test.txt.gpg
+- list all the keys with `gpg --list-keys` 
+- create a file to encrypt with `echo helloworld > test.txt`
+- encrypt the file with `gpg -r ${KEYID} --encrypt test.txt`
+- decrypt the file with `gpg --decrypt test.txt.gpg`
 
 ## Updating existing keys
 
