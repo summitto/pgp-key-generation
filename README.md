@@ -1,5 +1,7 @@
 # !!! EXPERIMENTAL - use at your own risk !!!
 
+![pgp-key-generation CI](https://github.com/summitto/pgp-key-generation/workflows/pgp-key-generation%20CI/badge.svg)
+
 # PGP key generation
 
 This repository provides the source for a utility used for creating PGP keys using
@@ -21,6 +23,12 @@ The source code can be built using only the dependencies of the
 The integration testing script, which can be run using `make test` in
 the build folder, additionally requires Python 3.7 (or 3.6 with
 the `dataclasses` library) and GnuPG to be installed.
+
+| Compiler      | Minimum version |
+| :---          |     :---:       |
+| Apple clang   | 11.0.3          |
+| clang         | 9.0.0           |
+| gcc           | 8.0.0           |
 
 ## Generating new keys
 
