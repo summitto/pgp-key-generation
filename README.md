@@ -20,14 +20,17 @@ you against losing keys, since they can always be generated again.
 
 The source code can be built using only the dependencies of the
 [pgp-packet-library](https://github.com/summitto/pgp-packet-library).
+It is recommended to build this tool and the library with the same compilers.
+
 The integration testing script, which can be run using `make test` in
 the build folder, additionally requires Python 3.7 (or 3.6 with
 the `dataclasses` library) and GnuPG to be installed.
 
-| Compiler      | Minimum version |
+The tool was compiled and tested with the following compilers
+| Compiler      | Version         |
 | :---          |     :---:       |
-| Apple clang   | 11.0.3          |
-| clang         | 9.0.0           |
+| Apple clang   | 10.0.3          |
+| clang         | 6.0.0           |
 | gcc           | 8.0.0           |
 
 ## Generating new keys
