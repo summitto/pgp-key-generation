@@ -1,7 +1,7 @@
 #pragma once
 
 #include "language.h"
-#include "../util/base_conversion.h"
+#include "../util/number_type.h"
 
 
 namespace mnemonics {

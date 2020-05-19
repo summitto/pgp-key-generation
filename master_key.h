@@ -2,7 +2,6 @@
 
 #include "mnemonics/language.h"
 #include "mnemonics/encode.h"
-#include "util/base_conversion.h"
 #include "const_word_iterator.h"
 #include "util/array.h"
 #include "encryption_key.h"
@@ -35,22 +34,6 @@ class master_key : public pgp::secure_object<std::array<uint8_t, crypto_kdf_KEYB
             crypto_secretbox_MACBYTES   +
             nonce_size
         };
-
-        /**
-         *  The alphabet to use for encoding
-         *  and decoding buffers. This contains
-         *  36 characters, resulting in a bas36
-         *  encoding scheme.
-         */
-        using alphabet = util::alphabet<
-            'a', 'b', 'c', 'd', 'e', 'f',
-            'g', 'h', 'i', 'j', 'k', 'l',
-            'm', 'n', 'o', 'p', 'q', 'r',
-            's', 't', 'u', 'v', 'w', 'x',
-            'y', 'z', '0', '1', '2', '3',
-            '4', '5', '6', '7', '8', '9'
-        >;
-
 
         /**
          *  Constructor
@@ -91,39 +74,6 @@ class master_key : public pgp::secure_object<std::array<uint8_t, crypto_kdf_KEYB
 
             // did the user choose yes
             return yes.starts_with(input);
-        }
-
-        /**
-         *  Query the user to see if they wish to use
-         *  a mnemonic instead of base36 for writing
-         *  the recovery seed
-         *
-         *  @return true for mnemonic, false for base36
-         */
-        static bool query_use_mnemonic()
-        {
-            // the inputs to use for base36 and mnemonic
-            constexpr boost::string_view base36     { "base36"      };
-            constexpr boost::string_view mnemonic   { "mnemonic"    };
-
-            // the input we are reading
-            std::string input { "invalid" };
-
-            // check whether we have valid input
-            while (!std::cin.eof() && !base36.starts_with(input) && !mnemonic.starts_with(input)) {
-                // input not yet valid read again
-                std::cout << "Use base36 or mnemonic for recovery seed output [mnemonic]: ";
-                std::getline(std::cin, input);
-
-                // convert the input to lowercase
-                std::transform(input.begin(), input.end(), input.begin(), [](unsigned char c) {
-                    // convert the character to lowercase
-                    return std::tolower(c);
-                });
-            }
-
-            // did the user choose to use mnemonic
-            return mnemonic.starts_with(input);
         }
 
         /**
@@ -187,10 +137,6 @@ class master_key : public pgp::secure_object<std::array<uint8_t, crypto_kdf_KEYB
          */
         bool try_recovery()
         {
-            // sizes for base36-encoded recovery seeds
-            constexpr const size_t unauthenticated_recovery_seed_size   = util::encoded_length<crypto_kdf_KEYBYTES, alphabet::base>();
-            constexpr const size_t authenticated_recovery_seed_size     = util::encoded_length<encrypted_size, alphabet::base>();
-
             // word counts for mnemonic recovery seeds
             constexpr const size_t unauthenticated_mnemonic_word_count  = mnemonics::word_count<crypto_kdf_KEYBYTES>;
             constexpr const size_t authenticated_mnemonic_word_count    = mnemonics::word_count<encrypted_size>;
@@ -210,30 +156,7 @@ class master_key : public pgp::secure_object<std::array<uint8_t, crypto_kdf_KEYB
                 // can check if we can recovery using a mnemonic
                 size_t word_count = std::count_if(recovery_seed.begin(), recovery_seed.end(), isspace) + 1;
 
-                // did we get a simple, unauthenticated recovery seed?
-                if (recovery_seed.size() == unauthenticated_recovery_seed_size) {
-                    // this recovery seed does not include any message-authentication-code
-                    // or salt to verify that it is correct, incorrect input will simply
-                    // result in a completely different key, which will still work, but
-                    // has a different key id and is thus a completely different key
-                    std::cout << "You are using an unauthenticated recovery code, any mistake in the recovery code will result" << std::endl;
-                    std::cout << "in a different key, with no diagnostic being emitted. Please verify the key id manually." << std::endl;
-
-                    // decode into the master key
-                    *this = util::decode<alphabet, unauthenticated_recovery_seed_size>(recovery_seed);
-
-                    // recovery complete
-                    return true;
-                } else if (recovery_seed.size() == authenticated_recovery_seed_size) {
-                    // parse the recovery seed
-                    auto recovery_data  { util::decode<alphabet, authenticated_recovery_seed_size>(recovery_seed)   };
-
-                    // decrypt the given recovery seed
-                    decrypt(recovery_data, query_passphrase());
-
-                    // recovery complete
-                    return true;
-                } else if (word_count == unauthenticated_mnemonic_word_count) {
+                if (word_count == unauthenticated_mnemonic_word_count) {
                     // this recovery seed does not include any message-authentication-code
                     // or salt to verify that it is correct, incorrect input will simply
                     // result in a completely different key, which will still work, but
@@ -276,72 +199,48 @@ class master_key : public pgp::secure_object<std::array<uint8_t, crypto_kdf_KEYB
          */
         void print_recovery_seed()
         {
-            // which output mode does the user want, encrypted or unencrypted, base36 or mnemonic?
             std::cout << "Key generation complete, we will now provide a recovery key which can be used" << std::endl;
             std::cout << "to recreate the same key. This recovery can be encrypted with a MAC to ensure" << std::endl;
             std::cout << "confidentiality and integrity. " << std::flush;
 
             // do we need to encrypt the recovery seed?
             auto encrypt_seed = query_encrypt_seed();
-            auto use_mnemonic = query_use_mnemonic();
 
             // does the user wish to use encryption?
             if (encrypt_seed) {
                 // encrypt the master key to generate the encrypted recovery seed
                 auto encrypted  = encrypt();
 
-                // do we have to use a mnemonic
-                if (use_mnemonic) {
-                    // generate the mnemonic from the encrypted seed
-                    auto mnemonic   = mnemonics::encode(query_language(), encrypted);
+                // generate the mnemonic from the encrypted seed
+                auto mnemonic   = mnemonics::encode(query_language(), encrypted);
 
-                    // we will now write the recovery seed
-                    std::cout << "Please write down the following recovery seed:";
+                // we will now write the recovery seed
+                std::cout << "Please write down the following recovery seed:";
 
-                    // process all the words
-                    for (auto word : mnemonic) {
-                        // write a separator and the mnemonic word
-                        std::cout << ' ' << word;
-                    }
-
-                    // finish the line
-                    std::cout << std::endl;
-                } else {
-                    // encode the encrypted seed using the specified
-                    // alphabet to make it human-readable.
-                    auto encoded    = util::encode<alphabet>(encrypted);
-
-                    // we will now write the recovery seed
-                    std::cout << "Please write down the following recovery seed: ";
-                    std::cout.write(encoded.data(), encoded.size());
-                    std::cout << std::endl;
+                // process all the words
+                for (auto word : mnemonic) {
+                    // write a separator and the mnemonic word
+                    std::cout << ' ' << word;
                 }
+
+                // finish the line
+                std::cout << std::endl;
+
             } else {
-                // do we have to use a mnemonic
-                if (use_mnemonic) {
-                    // generate the mnemonic from the master key
-                    auto mnemonic   = mnemonics::encode(query_language(), *this);
+                // generate the mnemonic from the master key
+                auto mnemonic   = mnemonics::encode(query_language(), *this);
 
-                    // we will now write the recovery seed
-                    std::cout << "Please write down the following recovery seed:";
+                // we will now write the recovery seed
+                std::cout << "Please write down the following recovery seed:";
 
-                    // process all the words
-                    for (auto word : mnemonic) {
-                        // write a separator and the mnemonic word
-                        std::cout << ' ' << word;
-                    }
-
-                    // finish the line
-                    std::cout << std::endl;
-                } else {
-                    // encode the master key to get human-readable output
-                    auto encoded    = util::encode<alphabet>(*this);
-
-                    // we will now write the recovery seed
-                    std::cout << "Please write down the following recovery seed: ";
-                    std::cout.write(encoded.data(), encoded.size());
-                    std::cout << std::endl;
+                // process all the words
+                for (auto word : mnemonic) {
+                    // write a separator and the mnemonic word
+                    std::cout << ' ' << word;
                 }
+
+                // finish the line
+                std::cout << std::endl;
             }
         }
 

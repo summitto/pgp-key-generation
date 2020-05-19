@@ -14,7 +14,6 @@
 #include "parameters_eddsa.h"
 #include "parameters_ecdsa.h"
 #include "parameters_rsa.h"
-#include "util/base_conversion.h"
 
 namespace {
 
