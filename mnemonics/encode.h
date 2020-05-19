@@ -66,7 +66,7 @@ namespace mnemonics {
         // process all words
         for (auto word : list) {
             // locate the word in the list
-            auto iter = std::lower_bound(begin(words), end(words), word);
+            auto iter = std::find(begin(words), end(words), word);
 
             // check whether it was found
             if (iter == end(words) || *iter != word) {

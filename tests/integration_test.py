@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
-import dataclasses, filecmp, re, os, random, shlex, shutil, subprocess, sys, tempfile, time
+import dataclasses, filecmp, re, os, random, shlex, shutil, subprocess, sys, tempfile, time, enum
 import datetime
 from typing import List, Tuple
 from generate import generateInput
@@ -20,6 +20,9 @@ def date_to_unix(string):
             .timestamp()
     )
 
+class RecoverySeedType(enum.Enum):
+    BASE36 = enum.auto()
+    MNEMONIC = enum.auto()
 
 class KeyFlag:
     Certification            = 0x01
@@ -274,15 +277,18 @@ def decrypt_file(encrypted_fname, output_fname, **kwargs):
     return os.access(output_fname, os.F_OK)
 
 # Use the specification to generate an initial key and its recovery seed
-def generate_initial_key(workdir, exec_name, appinput):
+def generate_initial_key(workdir, exec_name, appinput, seed_type, language_idx):
     keyfile = os.path.join(workdir, safe_temporary_name())
 
     with KeygenApplication(exec_name, keyfile, appinput, debug_dump_keys=True) as app:
         app.write_line("")  # generate a new key, no recovery seed
         app.write_line(appinput.dice)
         app.write_line("yes")
-        app.write_line("base36")
+        app.write_line(seed_type.name)
         app.write_line(appinput.key)
+        if seed_type is RecoverySeedType.MNEMONIC:
+            app.write_line(str(language_idx))
+
         text = app.read_all()
         idx1 = text.find("write down the following recovery seed:")
         idx2 = text.rfind("write down the following recovery seed:")
@@ -302,11 +308,12 @@ def generate_initial_key(workdir, exec_name, appinput):
         return keyfile, seed, param_dict
 
 # Use the specification to regenerate the previous key from its recovery seed
-def regenerate_key(workdir, exec_name, appinput, rec_seed):
+def regenerate_key(workdir, exec_name, appinput, rec_seed, seed_type, language_idx):
     keyfile = os.path.join(workdir, safe_temporary_name())
-
     with KeygenApplication(exec_name, keyfile, appinput) as app:
         app.write_line(rec_seed)  # regenerate a previous key from a recovery seed
+        if seed_type is RecoverySeedType.MNEMONIC:
+            app.write_line(str(language_idx))
         app.write_line(appinput.key)  # with this symmetric key
 
         # Ignore the output
@@ -410,14 +417,14 @@ def report_error(appinput, keyfile, rec_seed):
     shutil.copy(keyfile, fname)
     print("Generated key file copied to '{}'".format(fname))
 
-def run_test(exec_name, key_class):
+def run_test(exec_name, key_class, seed_type, language_idx = None):
     with tempfile.TemporaryDirectory() as tempdir:
         # --- Generate a new input set
         appinput = AppInput.generate(key_class)
 
         # --- Generate the key, and regenerate the key
-        keyfile1, rec_seed, key_param_dict = generate_initial_key(tempdir, exec_name, appinput)
-        keyfile2 = regenerate_key(tempdir, exec_name, appinput, rec_seed)
+        keyfile1, rec_seed, key_param_dict = generate_initial_key(tempdir, exec_name, appinput, seed_type, language_idx)
+        keyfile2 = regenerate_key(tempdir, exec_name, appinput, rec_seed, seed_type, language_idx)
 
         # --- Parse the keys using GPG and check equivalence
         parsed1 = parse_pgp_packet(keyfile1)
@@ -456,49 +463,53 @@ def run_test(exec_name, key_class):
         #     generated key after it is imported, so we create a
         #     dedicated GPG homedir for gpg to store its state in
         all_keyids = [packet.keyid for packet in parsed1 if isinstance(packet, SecretKeyPacket)]
-        with tempfile.TemporaryDirectory() as gpg_homedir:
-            # --- Test importing a key
-            if not import_gpg_packet(keyfile1, gpg_homedir = gpg_homedir):
-                print("Key import didn't work")
-                report_error(appinput, keyfile1, rec_seed)
-                return False
+        try:
+            with tempfile.TemporaryDirectory() as gpg_homedir:
+                # --- Test importing a key
+                if not import_gpg_packet(keyfile1, gpg_homedir = gpg_homedir):
+                    print("Key import didn't work")
+                    report_error(appinput, keyfile1, rec_seed)
+                    return False
 
-            fprs_in_listing = list_fingerprints(gpg_homedir = gpg_homedir)
-            while any(k not in fprs_in_listing for k in all_keyids):
-                print("Some keyid in {} not found in gpg listing yet!".format(all_keyids))
                 fprs_in_listing = list_fingerprints(gpg_homedir = gpg_homedir)
+                while any(k not in fprs_in_listing for k in all_keyids):
+                    print("Some keyid in {} not found in gpg listing yet!".format(all_keyids))
+                    fprs_in_listing = list_fingerprints(gpg_homedir = gpg_homedir)
 
-            # --- Test signing and encrypting data
-            message_fname = make_random_file(tempdir, 1000)
-            output_fname = os.path.join(tempdir, safe_temporary_name())
-            if not sign_encrypt_file(keyid, message_fname, output_fname, gpg_homedir = gpg_homedir):
-                print("Sign+encrypt didn't work")
-                report_error(appinput, keyfile1, rec_seed)
-                return False
+                # --- Test signing and encrypting data
+                message_fname = make_random_file(tempdir, 1000)
+                output_fname = os.path.join(tempdir, safe_temporary_name())
+                if not sign_encrypt_file(keyid, message_fname, output_fname, gpg_homedir = gpg_homedir):
+                    print("Sign+encrypt didn't work")
+                    report_error(appinput, keyfile1, rec_seed)
+                    return False
 
-            # --- Test decrypting (and verifying) the file created above
-            decrypt_fname = os.path.join(tempdir, safe_temporary_name())
-            # This retrying is sometimes necessary; I suspect that it is because the GPG agent
-            # doesn't get up soon enough, so the private key material is not available. No proof
-            # though.
-            if not retry_until_truthy(2, lambda: decrypt_file(output_fname, decrypt_fname, gpg_homedir = gpg_homedir), "decrypt_file"):
-                print("Decrypt didn't work")
-                report_error(appinput, keyfile1, rec_seed)
-                return False
+                # --- Test decrypting (and verifying) the file created above
+                decrypt_fname = os.path.join(tempdir, safe_temporary_name())
+                # This retrying is sometimes necessary; I suspect that it is because the GPG agent
+                # doesn't get up soon enough, so the private key material is not available. No proof
+                # though.
+                if not retry_until_truthy(2, lambda: decrypt_file(output_fname, decrypt_fname, gpg_homedir = gpg_homedir), "decrypt_file"):
+                    print("Decrypt didn't work")
+                    report_error(appinput, keyfile1, rec_seed)
+                    return False
 
-            # --- Check whether decryption yielded the original file again
-            if not filecmp.cmp(message_fname, decrypt_fname, shallow = False):
-                print("Decryption produced a different file than was encrypted")
-                report_error(appinput, keyfile1, rec_seed)
-                return False
-
+                # --- Check whether decryption yielded the original file again
+                if not filecmp.cmp(message_fname, decrypt_fname, shallow = False):
+                    print("Decryption produced a different file than was encrypted")
+                    report_error(appinput, keyfile1, rec_seed)
+                    return False
+        except FileNotFoundError:
+            # Ignore file not found error during cleanup, in some special cases the gpg-agent will create the sockets inside the
+            # temporary folder and might try to delete them before a cleanup is realized, this will produce a FileNotFoundError which we can ignore
+            pass
     return True
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("exec_name", help="generate_derived_key executable")
-    parser.add_argument("-n", "--num_tests", required=False, type=int, default=5,
+    parser.add_argument("-n", "--num_tests", required=False, type=int, default=1,
                         help="Number of repetitions to run for the tests.")
 
     args = parser.parse_args()
@@ -507,13 +518,20 @@ def main():
 
     key_classes = ["eddsa", "ecdsa", "rsa2048", "rsa4096", "rsa8192"]
 
+    languages = ["Chinese simplified", "Chinese traditional", "Czech", "English", "French", "Italian", "Japanese", "Korean", "Spanish"]
+
     for key_class in key_classes:
-        print("Running {} random tests for {}...".format(num_tests, key_class))
-
-        for test_index in range(num_tests):
-            if not run_test(exec_name, key_class):
+        print(f'Running {num_tests} random tests for {key_class}...', end=" ", flush=True)
+        for _ in range(num_tests):
+            if not run_test(exec_name, key_class, RecoverySeedType.BASE36):
                 sys.exit(1)
+        print('Completed.')
 
+        for idx, language in enumerate(languages):
+            print(f'Running mnemonic seed test with a random key in {language} for {key_class}...', end=" ", flush=True)
+            if not run_test(exec_name, key_class, RecoverySeedType.MNEMONIC, idx):
+                sys.exit(1)
+            print('Completed.')
     print("Succeeded!")
 
 
