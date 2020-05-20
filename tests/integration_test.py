@@ -20,10 +20,6 @@ def date_to_unix(string):
             .timestamp()
     )
 
-class RecoverySeedType(enum.Enum):
-    BASE36 = enum.auto()
-    MNEMONIC = enum.auto()
-
 class KeyFlag:
     Certification            = 0x01
     Signing                  = 0x02
@@ -277,17 +273,15 @@ def decrypt_file(encrypted_fname, output_fname, **kwargs):
     return os.access(output_fname, os.F_OK)
 
 # Use the specification to generate an initial key and its recovery seed
-def generate_initial_key(workdir, exec_name, appinput, seed_type, language_idx):
+def generate_initial_key(workdir, exec_name, appinput, language_idx):
     keyfile = os.path.join(workdir, safe_temporary_name())
 
     with KeygenApplication(exec_name, keyfile, appinput, debug_dump_keys=True) as app:
         app.write_line("")  # generate a new key, no recovery seed
         app.write_line(appinput.dice)
         app.write_line("yes")
-        app.write_line(seed_type.name)
         app.write_line(appinput.key)
-        if seed_type is RecoverySeedType.MNEMONIC:
-            app.write_line(str(language_idx))
+        app.write_line(str(language_idx))
 
         text = app.read_all()
         idx1 = text.find("write down the following recovery seed:")
@@ -308,12 +302,11 @@ def generate_initial_key(workdir, exec_name, appinput, seed_type, language_idx):
         return keyfile, seed, param_dict
 
 # Use the specification to regenerate the previous key from its recovery seed
-def regenerate_key(workdir, exec_name, appinput, rec_seed, seed_type, language_idx):
+def regenerate_key(workdir, exec_name, appinput, rec_seed, language_idx):
     keyfile = os.path.join(workdir, safe_temporary_name())
     with KeygenApplication(exec_name, keyfile, appinput) as app:
         app.write_line(rec_seed)  # regenerate a previous key from a recovery seed
-        if seed_type is RecoverySeedType.MNEMONIC:
-            app.write_line(str(language_idx))
+        app.write_line(str(language_idx))
         app.write_line(appinput.key)  # with this symmetric key
 
         # Ignore the output
@@ -417,14 +410,14 @@ def report_error(appinput, keyfile, rec_seed):
     shutil.copy(keyfile, fname)
     print("Generated key file copied to '{}'".format(fname))
 
-def run_test(exec_name, key_class, seed_type, language_idx = None):
+def run_test(exec_name, key_class, language_idx = None):
     with tempfile.TemporaryDirectory() as tempdir:
         # --- Generate a new input set
         appinput = AppInput.generate(key_class)
 
         # --- Generate the key, and regenerate the key
-        keyfile1, rec_seed, key_param_dict = generate_initial_key(tempdir, exec_name, appinput, seed_type, language_idx)
-        keyfile2 = regenerate_key(tempdir, exec_name, appinput, rec_seed, seed_type, language_idx)
+        keyfile1, rec_seed, key_param_dict = generate_initial_key(tempdir, exec_name, appinput, language_idx)
+        keyfile2 = regenerate_key(tempdir, exec_name, appinput, rec_seed, language_idx)
 
         # --- Parse the keys using GPG and check equivalence
         parsed1 = parse_pgp_packet(keyfile1)
@@ -521,15 +514,9 @@ def main():
     languages = ["Chinese simplified", "Chinese traditional", "Czech", "English", "French", "Italian", "Japanese", "Korean", "Spanish"]
 
     for key_class in key_classes:
-        print(f'Running {num_tests} random tests for {key_class}...', end=" ", flush=True)
-        for _ in range(num_tests):
-            if not run_test(exec_name, key_class, RecoverySeedType.BASE36):
-                sys.exit(1)
-        print('Completed.')
-
         for idx, language in enumerate(languages):
             print(f'Running mnemonic seed test with a random key in {language} for {key_class}...', end=" ", flush=True)
-            if not run_test(exec_name, key_class, RecoverySeedType.MNEMONIC, idx):
+            if not run_test(exec_name, key_class, idx):
                 sys.exit(1)
             print('Completed.')
     print("Succeeded!")

@@ -7,11 +7,11 @@ on:
     branches: [ master ]
 
 jobs:
-  appleclang:
-    name: appleclang-11.0.3
+  appleclang-minimum:
+    name: appleclang-10.0.1
     runs-on: macos-latest
     env:
-      DEVELOPER_DIR: /Applications/Xcode_11.4.app/Contents/Developer
+      DEVELOPER_DIR: /Applications/Xcode_10.3.app/Contents/Developer
 
     steps:
       - uses: actions/checkout@v2
@@ -25,11 +25,54 @@ jobs:
       - name: cmake
         run: cmake -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH=ci-install
       - name: build
-        run: cmake --build build -j$(sysctl -n hw.logicalcpu)
+        run: cmake --build build
       - name: test
         run: make -C build test
 
-  clang:
+  appleclang-latest:
+    name: appleclang-11.0.3
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: dependencies
+        run: brew install boost cryptopp
+      - name: pgp-packet-library
+        run: |
+          git clone https://github.com/summitto/pgp-packet-library.git --depth 1 --recurse-submodules --shallow-submodules
+          cmake -B pgp-packet-library/build -S pgp-packet-library -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=ci-install
+          cmake --build pgp-packet-library/build --target install
+      - name: cmake
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=ci-install
+      - name: build
+        run: cmake --build build
+      - name: test
+        run: make -C build test
+
+  clang-minimum:
+    name: clang-6
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsodium-dev libcrypto++-dev libboost-all-dev
+          pip3 install dataclasses
+      - name: pgp-packet-library
+        run: |
+          git clone https://github.com/summitto/pgp-packet-library.git --depth 1 --recurse-submodules --shallow-submodules
+          cmake -B pgp-packet-library/build -S pgp-packet-library -DCMAKE_CXX_COMPILER=clang++-6.0 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=ci-install
+          cmake --build pgp-packet-library/build --target install -j$(nproc)
+      - name: cmake
+        run: cmake -B build -DCMAKE_CXX_COMPILER=clang++-6.0 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=ci-install
+      - name: build
+        run: cmake --build build -j$(nproc)
+      - name: test
+        run: make -C build test
+
+  clang-latest:
     name: clang-9
     runs-on: ubuntu-latest
 
@@ -38,25 +81,44 @@ jobs:
       - name: dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libsodium-dev libcrypto++-dev
+          sudo apt-get install -y libsodium-dev libcrypto++-dev libboost-all-dev
           pip3 install dataclasses
-          cd ${BOOST_ROOT_1_72_0}
-          sudo ./bootstrap.sh
-          sudo ./b2 install --with-program_options -j$(nproc)
-          cd -
       - name: pgp-packet-library
         run: |
           git clone https://github.com/summitto/pgp-packet-library.git --depth 1 --recurse-submodules --shallow-submodules
-          cmake -B pgp-packet-library/build -S pgp-packet-library -DCMAKE_C_COMPILER=clang-9 -DCMAKE_CXX_COMPILER=clang++-9 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=ci-install
+          cmake -B pgp-packet-library/build -S pgp-packet-library -DCMAKE_CXX_COMPILER=clang++-9 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=ci-install
           cmake --build pgp-packet-library/build --target install -j$(nproc)
       - name: cmake
-        run: cmake -B build -DCMAKE_C_COMPILER=clang-9 -DCMAKE_CXX_COMPILER=clang++-9 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH=ci-install
+        run: cmake -B build -DCMAKE_CXX_COMPILER=clang++-9 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=ci-install
       - name: build
         run: cmake --build build -j$(nproc)
       - name: test
         run: make -C build test
 
-  gcc:
+  gcc-minimum:
+    name: gcc-8
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsodium-dev libcrypto++-dev libboost-all-dev
+          pip3 install dataclasses
+      - name: pgp-packet-library
+        run: |
+          git clone https://github.com/summitto/pgp-packet-library.git  --depth 1 --recurse-submodules --shallow-submodules
+          cmake -B pgp-packet-library/build -S pgp-packet-library -DCMAKE_CXX_COMPILER=g++-8 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=ci-install
+          cmake --build pgp-packet-library/build --target install -j$(nproc)
+      - name: cmake
+        run: cmake -B build -DCMAKE_CXX_COMPILER=g++-8 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=ci-install
+      - name: build
+        run: cmake --build build -j$(nproc)
+      - name: test
+        run: make -C build test
+
+  gcc-latest:
     name: gcc-9
     runs-on: ubuntu-latest
 
@@ -65,19 +127,15 @@ jobs:
       - name: dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libsodium-dev libcrypto++-dev
+          sudo apt-get install -y libsodium-dev libcrypto++-dev libboost-all-dev
           pip3 install dataclasses
-          cd ${BOOST_ROOT_1_72_0}
-          sudo ./bootstrap.sh
-          sudo ./b2 install --with-program_options -j$(nproc)
-          cd -
       - name: pgp-packet-library
         run: |
           git clone https://github.com/summitto/pgp-packet-library.git  --depth 1 --recurse-submodules --shallow-submodules
-          cmake -B pgp-packet-library/build -S pgp-packet-library -DCMAKE_C_COMPILER=gcc-9 -DCMAKE_CXX_COMPILER=g++-9 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=ci-install
+          cmake -B pgp-packet-library/build -S pgp-packet-library -DCMAKE_CXX_COMPILER=g++-9 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=ci-install
           cmake --build pgp-packet-library/build --target install -j$(nproc)
       - name: cmake
-        run: cmake -B build -DCMAKE_C_COMPILER=gcc-9 -DCMAKE_CXX_COMPILER=g++-9 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH=ci-install
+        run: cmake -B build -DCMAKE_CXX_COMPILER=g++-9 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=ci-install
       - name: build
         run: cmake --build build -j$(nproc)
       - name: test
