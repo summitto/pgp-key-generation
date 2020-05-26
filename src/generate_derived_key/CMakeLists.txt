@@ -7,7 +7,6 @@ add_executable(generate_derived_key ${sources-list})
 set_property(TARGET generate_derived_key PROPERTY CXX_STANDARD 17)
 
 # Add shared
-target_include_directories(generate_derived_key PRIVATE ../shared)
 target_link_libraries(generate_derived_key shared)
 
 # I don't know whether this is the earliest version that supports concepts, but

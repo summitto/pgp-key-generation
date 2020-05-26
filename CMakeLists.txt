@@ -25,6 +25,7 @@ if (CMAKE_COMPILER_IS_GNUCC AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 8.2)
 endif()
 
 add_subdirectory(src/shared shared)
+add_subdirectory(src/extend_key_expiry extend_key_expiry)
 add_subdirectory(src/generate_derived_key generate_derived_key)
 add_subdirectory(tests)
 

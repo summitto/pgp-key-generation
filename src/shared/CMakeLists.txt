@@ -12,6 +12,8 @@ set(shared-sources
 add_library(shared STATIC ${shared-sources})
 
 target_link_libraries(shared
-    pgp-packet
-    Boost::program_options
-    CryptoPP::CryptoPP)
+    PUBLIC pgp-packet
+    PUBLIC Boost::program_options
+    PUBLIC CryptoPP::CryptoPP)
+
+target_include_directories(shared PUBLIC ${CMAKE_CURRENT_LIST_DIR})

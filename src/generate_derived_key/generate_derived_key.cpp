@@ -47,6 +47,7 @@ int main(int argc, const char **argv)
         std::string user_id = *options.user_name + " <" + *options.user_email + ">";
 
         // check if we want to recover an existing key
+        std::cout << "Enter recovery seed, or press enter to generate a new key. ";
         auto recovered = master.try_recovery();
 
         static_assert(crypto_kdf_KEYBYTES == crypto_generichash_BYTES);

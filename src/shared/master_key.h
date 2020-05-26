@@ -148,7 +148,7 @@ class master_key : public pgp::secure_object<std::array<uint8_t, crypto_kdf_KEYB
             // or until we have processed a valid recovery
             while (std::cin && !recovery_seed.empty()) {
                 // don't have a valid recovery seed yet
-                std::cout << "Enter recovery seed, or press enter to generate a new key: ";
+                std::cout << "Recovery seed: ";
                 std::getline(std::cin, recovery_seed);
 
                 // check the number of spaces in the recovery seed
