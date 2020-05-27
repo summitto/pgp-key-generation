@@ -79,7 +79,7 @@ def retry_until_truthy(ntimes, func, description = ""):
         ret = func()
         if ret or i >= ntimes:
             return ret
-        print("retry_until_truthy({}): Retrying ({}/{}) on failure".format(description, i, ntimes), file = sys.stderr)
+        print(f'retry_until_truthy({description}): Retrying ({i + 1}/{ntimes}) on failure', file = sys.stderr)
 
 
 # Context manager for interacting with a process line-wise
@@ -482,7 +482,7 @@ def run_test(exec_name, key_class, language_idx = None):
                 # This retrying is sometimes necessary; I suspect that it is because the GPG agent
                 # doesn't get up soon enough, so the private key material is not available. No proof
                 # though.
-                if not retry_until_truthy(2, lambda: decrypt_file(output_fname, decrypt_fname, gpg_homedir = gpg_homedir), "decrypt_file"):
+                if not retry_until_truthy(4, lambda: decrypt_file(output_fname, decrypt_fname, gpg_homedir = gpg_homedir), "decrypt_file"):
                     print("Decrypt didn't work")
                     report_error(appinput, keyfile1, rec_seed)
                     return False
