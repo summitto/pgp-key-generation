@@ -74,7 +74,7 @@ void deterministic_rng::GenerateBlock(pgp::span<CryptoPP::byte> output)
 
     if (_last_block_cursor != _last_block.end()) {
         // We have bytes left in the last block that we have to dispatch first.
-        if (output.size() <= std::distance(_last_block_cursor, _last_block.end())) {
+        if (output.size() <= static_cast<size_t>(std::distance(_last_block_cursor, _last_block.end()))) {
             // The bytes in the last block are sufficient.
             std::copy_n(_last_block_cursor, output.size(), output.begin());
             std::advance(_last_block_cursor, output.size());
