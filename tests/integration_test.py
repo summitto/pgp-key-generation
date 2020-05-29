@@ -41,6 +41,7 @@ class AppInput:
     key: str
     context: str
     key_creation: str
+    extension_period: str
 
     # Generate an input specification given a key type
     @staticmethod
@@ -56,6 +57,7 @@ class AppInput:
             values["key"],
             values["context"],
             values["key_creation"],
+            values["extension_period"],
         )
 
 
@@ -79,7 +81,7 @@ def retry_until_truthy(ntimes, func, description = ""):
         ret = func()
         if ret or i >= ntimes:
             return ret
-        print("retry_until_truthy({}): Retrying ({}/{}) on failure".format(description, i, ntimes), file = sys.stderr)
+        print(f'retry_until_truthy({description}): Retrying ({i + 1}/{ntimes}) on failure', file = sys.stderr)
 
 
 # Context manager for interacting with a process line-wise
@@ -130,7 +132,10 @@ class Application:
                 break
         return line
 
-    def read_all(self):
+    def read_all(self, decode=True):
+        if not decode:
+            return self._proc.communicate()[0]
+
         lines = self._proc.communicate()[0].decode("utf8").split("\n")
         if self._line_filter is None:
             return "\n".join(lines)
@@ -148,6 +153,20 @@ class KeygenApplication(Application):
             "-x", appinput.expiration,
             "-k", appinput.context,
             "-c", appinput.key_creation
+        ]
+
+        if debug_dump_keys:
+            args += ["--debug-dump-secret-and-public-keys"]
+
+        super().__init__(exec_name, args)
+
+class ExtendExpiryApplication(Application):
+    def __init__(self, exec_name, input_file, output_file, appinput, debug_dump_keys=False):
+        args = [
+            "-i", input_file,
+            "-o", output_file,
+            "-k", appinput.context,
+            "-e", appinput.extension_period
         ]
 
         if debug_dump_keys:
@@ -228,6 +247,19 @@ def import_gpg_packet(filename, **kwargs):
 
     return all(l)
 
+def export_public_key(key_fingerprint, workdir, **kwargs):
+    keyfile = os.path.join(workdir, safe_temporary_name())
+
+    with GPGApplication(["--export", key_fingerprint], also_stderr=True, **kwargs) as app:
+        output = app.read_all(False)
+        if not output or output == 'gpg: WARNING: nothing exported':
+            raise ValueError('Invalid public key exported')
+        file = open(keyfile, 'wb')
+        file.write(output)
+        file.close()
+
+    return keyfile
+
 # Passes all keyword arguments on to GPGApplication.
 # Lists the fingerprints of all secret and public keys known to GPG with the
 # given arguments.
@@ -300,6 +332,33 @@ def generate_initial_key(workdir, exec_name, appinput, language_idx):
                       for [keytype, params] in [line[2:].split(": ") for line in param_lines]}
 
         return keyfile, seed, param_dict
+
+def extend_key_expiry(workdir, exec_name, public_key_file, appinput, recovery_seed, language_idx):
+    keyfile = os.path.join(workdir, safe_temporary_name())
+    with ExtendExpiryApplication(exec_name, public_key_file, keyfile, appinput) as app:
+        app.write_line(recovery_seed)
+        app.write_line(str(language_idx))
+        app.write_line(appinput.key)
+        output = app.read_all().split('\n')
+
+        l = [
+            output.pop() == 'Enter mnemonic language: Enter encryption passphrase: ',
+            output.pop() == '  8: Spanish',
+            output.pop() == '  7: Korean',
+            output.pop() == '  6: Japanese',
+            output.pop() == '  5: Italian',
+            output.pop() == '  4: French',
+            output.pop() == '  3: English',
+            output.pop() == '  2: Czech',
+            output.pop() == '  1: Chinese (traditional)',
+            output.pop() == '  0: Chinese (simplified)',
+            output.pop() == 'Recovery seed: Select a langauge for mnemonic conversion, the following options are available:',
+        ]
+
+        if not all(l) or output:
+            raise ValueError('Failed to extend key expiry.')
+
+    return keyfile
 
 # Use the specification to regenerate the previous key from its recovery seed
 def regenerate_key(workdir, exec_name, appinput, rec_seed, language_idx):
@@ -410,7 +469,50 @@ def report_error(appinput, keyfile, rec_seed):
     shutil.copy(keyfile, fname)
     print("Generated key file copied to '{}'".format(fname))
 
-def run_test(exec_name, key_class, language_idx = None):
+# Compare the original and the extended key packets
+def compare_extended_key(original, extended, extension_period):
+    # Make a list of the differences between the original and the extended key
+    diffs = [(i, j) for i, j in zip(original, extended) if i != j]
+    for i, j in diffs:
+        # keys should be equal, only some subpackets of the signature change change
+        if not isinstance(i, SignaturePacket) or not isinstance(j, SignaturePacket):
+            return False
+        
+        # compare the relevant parts for equality
+        if (i.algo != j.algo 
+            or i.keyid != j.keyid
+            or i.version != j.version
+            or i.created != j.created
+            or i.md5len != j.md5len
+            or i.sigclass != j.sigclass
+            or i.digest[0] != j.digest[0]
+            or i.unhashed_subs != j.unhashed_subs):
+            return False
+        
+        # only expiration packets in the hashed sub packets should be different by a fixed amount of 90 days so we need to retrieve them
+        expiration_packets = [(k, l) for k, l in zip(i.hashed_subs, j.hashed_subs) if k != l]
+        for packets in expiration_packets:
+            if not isinstance(packets[0], KeyExpirationSubpacket) or not isinstance(packets[1], KeyExpirationSubpacket):
+                return False
+            
+            # retrieve the numbers from the expiration periods and save them in concatenated a list
+            expiration_dates = list(map(int, re.findall('\d+', packets[0].expires) + re.findall('\d+', packets[1].expires)))
+
+            # get the difference between the extended key and the original key expiry periods
+            result = [int(expiration_dates[4 + i]) - int(expiration_dates[i]) for i in range(len(expiration_dates) // 2)]
+            
+            # the key got extended for X days and the expiration period is formatted as "XXyXXdXXhXXm" where XX means
+            # a two digit number and its translated in our array as [y,d,h,m] therefore the previous substraction should be
+            # equivalent to the period of days represented as [years,months,0,0] but because more than 365 days are actually a year
+            # we need to take this variable into the equation, thus the extension period can be calculated as 365 * y + d
+            # it's also important to notice that the amount of hours and seconds need to be zero since the expiration period
+            # was extended by an exact number of days
+            extended_period = result[0] * 365 + result[1]
+            if extended_period != int(extension_period) or result[2] != 0 or result[3] != 0:
+                return False
+    return True
+
+def run_test(exec_name, extend_expiry_exec, key_class, language_idx = None):
     with tempfile.TemporaryDirectory() as tempdir:
         # --- Generate a new input set
         appinput = AppInput.generate(key_class)
@@ -482,7 +584,7 @@ def run_test(exec_name, key_class, language_idx = None):
                 # This retrying is sometimes necessary; I suspect that it is because the GPG agent
                 # doesn't get up soon enough, so the private key material is not available. No proof
                 # though.
-                if not retry_until_truthy(2, lambda: decrypt_file(output_fname, decrypt_fname, gpg_homedir = gpg_homedir), "decrypt_file"):
+                if not retry_until_truthy(4, lambda: decrypt_file(output_fname, decrypt_fname, gpg_homedir = gpg_homedir), "decrypt_file"):
                     print("Decrypt didn't work")
                     report_error(appinput, keyfile1, rec_seed)
                     return False
@@ -492,31 +594,41 @@ def run_test(exec_name, key_class, language_idx = None):
                     print("Decryption produced a different file than was encrypted")
                     report_error(appinput, keyfile1, rec_seed)
                     return False
+
+                # --- Export the public key, which would be used for the expiry tests
+                public_key_dir = export_public_key(parsed1[0].keyid, tempdir, gpg_homedir = gpg_homedir)
         except FileNotFoundError:
             # Ignore file not found error during cleanup, in some special cases the gpg-agent will create the sockets inside the
             # temporary folder and might try to delete them before a cleanup is realized, this will produce a FileNotFoundError which we can ignore
             pass
+
+        # --- Extend key expiry tests
+        extended_key = extend_key_expiry(tempdir, extend_expiry_exec, public_key_dir, appinput, rec_seed, language_idx)
+
+        # Compare both keys
+        if not compare_extended_key(parsed1, parse_pgp_packet(extended_key), appinput.extension_period):
+            print("Extended and original key are not compatible")
+            report_error(appinput, extended_key, rec_seed)
+            return False
     return True
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("exec_name", help="generate_derived_key executable")
-    parser.add_argument("-n", "--num_tests", required=False, type=int, default=1,
-                        help="Number of repetitions to run for the tests.")
+    parser.add_argument("exec_expiry_name", help="generate_derived_key executable")
 
     args = parser.parse_args()
     exec_name = args.exec_name
-    num_tests = args.num_tests
+    exec_expiry_name = args.exec_expiry_name
 
     key_classes = ["eddsa", "ecdsa", "rsa2048", "rsa4096", "rsa8192"]
-
     languages = ["Chinese simplified", "Chinese traditional", "Czech", "English", "French", "Italian", "Japanese", "Korean", "Spanish"]
 
     for key_class in key_classes:
         for idx, language in enumerate(languages):
             print(f'Running mnemonic seed test with a random key in {language} for {key_class}...', end=" ", flush=True)
-            if not run_test(exec_name, key_class, idx):
+            if not run_test(exec_name, exec_expiry_name, key_class, idx):
                 sys.exit(1)
             print('Completed.')
     print("Succeeded!")

@@ -14,31 +14,8 @@ find_package(Boost      REQUIRED
     COMPONENTS program_options)
 find_package(CryptoPP   REQUIRED)
 
-set(sources-list
-    assert_release.cpp
-    deterministic_rng.cpp
-    generate_derived_key.cpp
-    parameters.cpp
-    parameters_ecdsa.cpp
-    parameters_eddsa.cpp
-    parameters_rsa.cpp
-    packet_utils.cpp
-    time_utils.cpp
-)
-
 # Target definition
 add_compile_options(-Wall -Wextra -g -O0)
-add_executable(generate_derived_key ${sources-list})
-set_property(TARGET generate_derived_key PROPERTY CXX_STANDARD 17)
-
-# Add pgp-packet
-target_link_libraries(generate_derived_key pgp-packet)
-
-# Add Boost
-target_link_libraries(generate_derived_key Boost::program_options)
-
-# Add CryptoPP
-target_link_libraries(generate_derived_key CryptoPP::CryptoPP)
 
 # I don't know whether this is the earliest version that supports concepts, but
 # at least 8.2.1 supports it.
@@ -47,6 +24,9 @@ if (CMAKE_COMPILER_IS_GNUCC AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 8.2)
     add_compile_options(-fconcepts -DHAVE_CPP20_CONCEPTS)
 endif()
 
+add_subdirectory(src/shared shared)
+add_subdirectory(src/extend_key_expiry extend_key_expiry)
+add_subdirectory(src/generate_derived_key generate_derived_key)
 add_subdirectory(tests)
 
 # Custom target for clang-tidy

@@ -34,9 +34,10 @@ def generateSymmetricKey():
 def generateInput():
     # generate some dates in the right range
     now = int(time.time())
+    date_extension = random.randint(1, 1825)
     date_key_creation = generateDate(maxdate_unix=now)
     date_creation = generateDate(maxdate_unix=now)
-    date_expiration = generateDate(mindate_unix=now)
+    date_expiration = generateDate(mindate_unix=now, maxdate_unix=2**32 - date_extension * 60 * 60 * 24)
     # the key creation date has to be before the signature creation date
     date_key_creation, date_creation = sorted([date_key_creation, date_creation])
 
@@ -48,5 +49,6 @@ def generateInput():
         "dice": generateDice(),
         "key": generateSymmetricKey(),
         "context": generateString(minstrlen=8, maxstrlen=8),
-        "key_creation": date_key_creation
+        "key_creation": date_key_creation,
+        "extension_period": str(date_extension),
     }

@@ -55,6 +55,15 @@ class SecretKeyPacket(Packet):
     keyid: str
 
 @dataclass
+class PublicKeyPacket(Packet):
+    version: int
+    algo: int
+    created: int
+    expires: int
+    keys: List[Tuple[str, int, str]]
+    keyid: str
+
+@dataclass
 class UserIDPacket(Packet):
     userid: str
 
@@ -130,8 +139,8 @@ def parse_gpg_packet_listing(output):
 
     # Returns the packet parsed
     def interpret_packet(typestr, extra_text, block_lines):
-        if typestr == "secret key packet" or typestr == "secret sub key packet":
-            res = SecretKeyPacket(-1, "", -1, -1, [], "", "")
+        if typestr == "public key packet" or typestr == "public sub key packet":
+            res = PublicKeyPacket(-1, "", -1, -1, [], "")
 
             for line in block_lines:
                 if line.startswith("version"):
@@ -141,12 +150,10 @@ def parse_gpg_packet_listing(output):
                         elif part[0] == "algo": res.algo = int(part[1])
                         elif part[0] == "created": res.created = int(part[1])
                         elif part[0] == "expires": res.expires = int(part[1])
-                elif line.startswith("pkey") or line.startswith("skey"):
+                elif line.startswith("pkey"):
                     match = re.match(r"^([^[]*)\[([^]]*)\]: (.*)$", line)
                     assert match is not None
                     res.keys.append((match.group(1), int(match.group(2)), match.group(3)))
-                elif line.startswith("checksum"):
-                    res.checksum = line.split(" ")[1]
                 elif line.startswith("keyid"):
                     res.keyid = line.split(" ")[1]
                 else:
@@ -184,6 +191,29 @@ def parse_gpg_packet_listing(output):
 
             return res
 
+        elif typestr == "secret key packet" or typestr == "secret sub key packet":
+            res = SecretKeyPacket(-1, "", -1, -1, [], "", "")
+
+            for line in block_lines:
+                if line.startswith("version"):
+                    for part in line.split(","):
+                        part = part.strip().split(" ")
+                        if part[0] == "version": res.version = int(part[1])
+                        elif part[0] == "algo": res.algo = int(part[1])
+                        elif part[0] == "created": res.created = int(part[1])
+                        elif part[0] == "expires": res.expires = int(part[1])
+                elif line.startswith("pkey") or line.startswith("skey"):
+                    match = re.match(r"^([^[]*)\[([^]]*)\]: (.*)$", line)
+                    assert match is not None
+                    res.keys.append((match.group(1), int(match.group(2)), match.group(3)))
+                elif line.startswith("checksum"):
+                    res.checksum = line.split(" ")[1]
+                elif line.startswith("keyid"):
+                    res.keyid = line.split(" ")[1]
+                else:
+                    raise Exception("Unrecognised line in packet")
+
+            return res
         else:
             raise Exception("Unrecognised packet type '" + typestr + "'")
 
