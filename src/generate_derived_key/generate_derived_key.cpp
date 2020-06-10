@@ -101,7 +101,7 @@ int main(int argc, const char **argv)
         std::time_t signature_expiration_timestamp  = time_utils::tm_to_utc_unix_timestamp(*options.signature_expiration);
 
         // select the function with which to generate the packets
-        std::function<std::vector<pgp::packet>(const master_key&, std::string, uint32_t, uint32_t, uint32_t, boost::string_view, bool)> generation_function;
+        std::function<std::vector<pgp::packet>(const master_key&, std::string, uint32_t, uint32_t, uint32_t, bool)> generation_function;
         switch (*options.type) {
             case util::key_class::eddsa: generation_function = generate_key<parameters::eddsa>; break;
             case util::key_class::ecdsa: generation_function = generate_key<parameters::ecdsa>; break;
@@ -111,7 +111,7 @@ int main(int argc, const char **argv)
         }
 
         // generate the packets
-        auto packets = generation_function(master, std::move(user_id), key_creation_timestamp, signature_creation_timestamp, signature_expiration_timestamp, *options.kdf_context, options.debug_dump_keys);
+        auto packets = generation_function(master, std::move(user_id), key_creation_timestamp, signature_creation_timestamp, signature_expiration_timestamp, options.debug_dump_keys);
 
         // determine output size
         size_t data_size = std::accumulate(packets.begin(), packets.end(), 0, [](size_t a, auto &&b) -> size_t {

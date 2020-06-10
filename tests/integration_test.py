@@ -39,7 +39,6 @@ class AppInput:
     expiration: str
     dice: str
     key: str
-    context: str
     key_creation: str
     extension_period: str
 
@@ -55,7 +54,6 @@ class AppInput:
             values["expiration"],
             values["dice"],
             values["key"],
-            values["context"],
             values["key_creation"],
             values["extension_period"],
         )
@@ -151,7 +149,6 @@ class KeygenApplication(Application):
             "-e", appinput.email,
             "-s", appinput.creation,
             "-x", appinput.expiration,
-            "-k", appinput.context,
             "-c", appinput.key_creation
         ]
 
@@ -165,7 +162,6 @@ class ExtendExpiryApplication(Application):
         args = [
             "-i", input_file,
             "-o", output_file,
-            "-k", appinput.context,
             "-e", appinput.extension_period
         ]
 
@@ -460,7 +456,7 @@ def report_error(appinput, keyfile, rec_seed):
     print("Command line: -t {} -n {} -e {} -s {} -x {} -k {} -c {}".format(
         *(shlex.quote(x) for x in
             [appinput.key_type, appinput.name, appinput.email, appinput.creation,
-            appinput.expiration, appinput.context, appinput.key_creation])
+            appinput.expiration, appinput.key_creation])
     ))
     print("Dice: {}".format(appinput.dice))
     print("Encryption key: {}".format(appinput.key))

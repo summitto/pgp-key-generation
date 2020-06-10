@@ -81,11 +81,10 @@ namespace key_expiry {
          *  Regenerates the secret key packet
          *
          *  @param  master              The master key used to generate the packet
-         *  @param  kdf_context         The context used to generate the packet
          *  @param  debug_dump_keys     Whether the keys should be printed or not for debugging purposes
          *  @param  extension_period    The expiry extension period in days
          */
-        std::vector<pgp::packet> regenerate(const master_key& master, boost::string_view kdf_context, bool debug_dump_keys, uint32_t extension_period) const;
+        std::vector<pgp::packet> regenerate(const master_key& master, bool debug_dump_keys, uint32_t extension_period) const;
 
         /**
          *  Retrieves a string with the information of the key for debugging

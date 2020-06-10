@@ -22,7 +22,6 @@ namespace key_expiry {
             ("help,h",                                                                          "Produce help message")
             ("input-file,i",  po::value<util::opt_prompt<std::string>>(&input_file),            "Public key file")
             ("output-file,o",  po::value<util::opt_prompt<std::string>>(&output_file),          "Output file")
-            ("kdf-context,k",  po::value<util::opt_prompt<std::string>>(&kdf_context),          "Key derivation context (8 bytes)")
             ("extension-period,e",  po::value<util::opt_prompt<uint32_t>>(&extension_period),   "Key expiry extension period in days")
             ("debug-dump-secret-and-public-keys", po::bool_switch(&debug_dump_keys),            "Dump generated key parameters; WARNING: sensitive data!");
 
@@ -59,12 +58,7 @@ namespace key_expiry {
         // ensure that all the options are initialized by possibly reading some from standard input
         input_file.ensure_prompt("Public key file");
         output_file.ensure_prompt("Output file");
-        kdf_context.ensure_prompt("Key derivation context (8 bytes)");
         extension_period.ensure_prompt("Key expiry extension period in days");
 
-        // check that the KDF context is the right size
-        if (kdf_context->size() != 8) {
-            throw std::invalid_argument{ "Invalid key derivation context size, expected 8 bytes." };
-        }
     }
 }
