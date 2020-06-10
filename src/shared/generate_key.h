@@ -96,20 +96,19 @@ concept bool KeyParameters() {
  *  @param  creation    The creation timestamp for the key
  *  @param  signature   The creation timestamp for the signature
  *  @param  expiration  The expiration timestamp for the signature
- *  @param  context     The context to use for deriving the keys
  */
 template <KeyParameters params_t>
-std::vector<pgp::packet> generate_key(const master_key &master, std::string user, uint32_t creation, uint32_t signature, uint32_t expiration, boost::string_view context, bool debug_dump_keys)
+std::vector<pgp::packet> generate_key(const master_key &master, std::string user, uint32_t creation, uint32_t signature, uint32_t expiration, bool debug_dump_keys)
 {
     // pgp likes the expiration timestamp to not be a timestamp (but still call it that)
     // but instead define it as the number of seconds since the key creation timestamp
     expiration -= creation;
 
     // derive the keys from the master
-    derived_key<params_t::derivation_size> main_key_derivation             { master, 1, context };
-    derived_key<params_t::derivation_size> signing_key_derivation          { master, 2, context };
-    derived_key<params_t::derivation_size> encryption_key_derivation       { master, 3, context };
-    derived_key<params_t::derivation_size> authentication_key_derivation   { master, 4, context };
+    derived_key<params_t::derivation_size> main_key_derivation             { master, 1 };
+    derived_key<params_t::derivation_size> signing_key_derivation          { master, 2 };
+    derived_key<params_t::derivation_size> encryption_key_derivation       { master, 3 };
+    derived_key<params_t::derivation_size> authentication_key_derivation   { master, 4 };
 
     // Compute the keys from the derivation data.
     const auto keys{

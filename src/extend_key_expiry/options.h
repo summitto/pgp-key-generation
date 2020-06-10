@@ -19,9 +19,6 @@ namespace key_expiry {
         // the key output file
         util::opt_prompt<std::string> output_file;
 
-        // meta-information for the key derivation
-        util::opt_prompt<std::string> kdf_context;
-
         // the key expiry extension period
         util::opt_prompt<uint32_t>    extension_period;
 

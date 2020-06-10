@@ -124,21 +124,20 @@ namespace key_expiry {
      *  Regenerates the secret key packet
      *
      *  @param  master              The master key used to generate the packet
-     *  @param  kdf_context         The context used to generate the packet
      *  @param  debug_dump_keys     Whether the keys should be printed or not for debugging purposes
      *  @param  extension_period    The expiry extension period in days
      */
-    std::vector<pgp::packet> public_key::regenerate(const master_key& master, boost::string_view kdf_context, bool debug_dump_keys, uint32_t extension_period) const {
+    std::vector<pgp::packet> public_key::regenerate(const master_key& master, bool debug_dump_keys, uint32_t extension_period) const {
         uint32_t expiration = expiration_timestamp() + epoch_day_time * extension_period;
         std::vector<pgp::packet> retval;
 
         switch (algorithm()) {
             case pgp::key_algorithm::eddsa: {
-                retval = generate_key<parameters::eddsa>(master, user_id(), creation_timestamp(), signature_creation_timestamp(), expiration, kdf_context, debug_dump_keys);
+                retval = generate_key<parameters::eddsa>(master, user_id(), creation_timestamp(), signature_creation_timestamp(), expiration, debug_dump_keys);
                 break;
             }
             case pgp::key_algorithm::ecdsa: {
-                retval = generate_key<parameters::ecdsa>(master, user_id(), creation_timestamp(), signature_creation_timestamp(), expiration, kdf_context, debug_dump_keys);
+                retval = generate_key<parameters::ecdsa>(master, user_id(), creation_timestamp(), signature_creation_timestamp(), expiration, debug_dump_keys);
                 break;
             }
             case pgp::key_algorithm::rsa_encrypt_or_sign: {
@@ -151,13 +150,13 @@ namespace key_expiry {
                 // generate the right key
                 switch (rsa_bit_size) {
                     case 2048:
-                        retval = generate_key<parameters::rsa<2048>>(master, user_id(), creation_timestamp(), signature_creation_timestamp(), expiration, kdf_context, debug_dump_keys);
+                        retval = generate_key<parameters::rsa<2048>>(master, user_id(), creation_timestamp(), signature_creation_timestamp(), expiration, debug_dump_keys);
                         break;
                     case 4096:
-                        retval = generate_key<parameters::rsa<4096>>(master, user_id(), creation_timestamp(), signature_creation_timestamp(), expiration, kdf_context, debug_dump_keys);
+                        retval = generate_key<parameters::rsa<4096>>(master, user_id(), creation_timestamp(), signature_creation_timestamp(), expiration, debug_dump_keys);
                         break;
                     case 8192:
-                        retval = generate_key<parameters::rsa<8192>>(master, user_id(), creation_timestamp(), signature_creation_timestamp(), expiration, kdf_context, debug_dump_keys);
+                        retval = generate_key<parameters::rsa<8192>>(master, user_id(), creation_timestamp(), signature_creation_timestamp(), expiration, debug_dump_keys);
                         break;
                     default:
                         throw std::invalid_argument{ "Invalid RSA modulus size" };

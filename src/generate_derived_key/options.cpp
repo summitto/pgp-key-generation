@@ -26,7 +26,6 @@ namespace key_generation {
             ("email,e",        po::value<util::opt_prompt<std::string>>(&user_email),                   "Your email address")
             ("sigtime,s",      po::value<util::opt_prompt<util::tm_wrapper>> (&signature_creation),     "Signature creation time in UTC (YYYY-MM-DD HH:MM:SS)")
             ("sigexpiry,x",    po::value<util::opt_prompt<util::tm_wrapper>> (&signature_expiration),   "Signature expiration time in UTC (YYYY-MM-DD HH:MM:SS)")
-            ("kdf-context,k",  po::value<util::opt_prompt<std::string>>(&kdf_context),                  "Key derivation context (8 bytes)")
             ("key-creation,c", po::value<util::opt_prompt<util::tm_wrapper>> (&key_creation),           "Key creation time in UTC (YYYY-MM-DD HH:MM:SS)")
             ("debug-dump-secret-and-public-keys", po::bool_switch(&debug_dump_keys),                    "Dump generated key parameters; WARNING: sensitive data!");
 
@@ -67,13 +66,7 @@ namespace key_generation {
         user_email          .ensure_prompt("Your email address");
         signature_creation  .ensure_prompt("Signature creation time in UTC (YYYY-MM-DD HH:MM:SS)");
         signature_expiration.ensure_prompt("Signature expiration time in UTC (YYYY-MM-DD HH:MM:SS)");
-        kdf_context         .ensure_prompt("Key derivation context (8 bytes)");
         key_creation        .ensure_prompt("Key creation time in UTC (YYYY-MM-DD HH:MM:SS)");
 
-        // check that the KDF context is the right size
-        if (kdf_context->size() != 8) {
-            // alert the user to the invalid input and exit
-            throw std::invalid_argument{ "Invalid key derivation context size, expected 8 bytes." };
-        }
     }
 }

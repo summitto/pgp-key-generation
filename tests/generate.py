@@ -48,7 +48,6 @@ def generateInput():
         "expiration": date_expiration,
         "dice": generateDice(),
         "key": generateSymmetricKey(),
-        "context": generateString(minstrlen=8, maxstrlen=8),
         "key_creation": date_key_creation,
         "extension_period": str(date_extension),
     }

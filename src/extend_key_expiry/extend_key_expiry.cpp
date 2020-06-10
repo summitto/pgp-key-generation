@@ -26,7 +26,7 @@ int main(int argc, const char **argv) {
 
         // create our simple user id packet
         key_expiry::public_key data{ *options.input_file };
-        auto packets = data.regenerate(master, *options.kdf_context, options.debug_dump_keys, *options.extension_period);
+        auto packets = data.regenerate(master, options.debug_dump_keys, *options.extension_period);
     
         // determine output size
         size_t data_size = std::accumulate(packets.begin(), packets.end(), 0, [](size_t a, auto &&b) -> size_t {
