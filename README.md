@@ -1,5 +1,3 @@
-# !!! EXPERIMENTAL - use at your own risk !!!
-
 ![pgp-key-generation CI](https://github.com/summitto/pgp-key-generation/workflows/pgp-key-generation%20CI/badge.svg)
 
 # PGP key generation
@@ -15,6 +13,9 @@ combination with the chosen passphrase, can be used to recreate the exact same k
 
 This means that keeping the seed value and passphrase in a safe location can protect
 you against losing keys, since they can always be generated again.
+
+**Although an audit has been completed (see [below](#audit)), use this security-related
+tool at your own risk!**
 
 ## Dependencies
 
@@ -32,6 +33,26 @@ The tool was compiled and tested with the following compilers
 | Apple clang   | 10.0.3          |
 | clang         | 6.0.0           |
 | gcc           | 8.0.0           |
+
+## Audit
+
+This tool has been audited by [Radically Open
+Security](https://radicallyopensecurity.com/) in November 2019:
+
+    During this review we focused on weak key material being generated and
+    sensitive data being leaked.  
+    
+    We found a couple of issues which would probably not cause any problems if
+    the tool is used as intended. Operator errors can never be ruled out,
+    however, so it makes sense to build defense in depth to limit the
+    possibilities of such a thing happening.  
+    
+    We also found two cases of invalid or insecure parameters being used, which
+    could lead to the choosing of weak key material or cryptographic
+    algorithms.
+
+[Read full audit report](https://github.com/summitto/pgp-key-generation/audit.pdf)
+
 
 ## Generating new keys
 
