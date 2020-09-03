@@ -16,7 +16,12 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: dependencies
-        run: brew install boost cryptopp
+        run: |
+          brew install boost
+          curl -O https://www.cryptopp.com/cryptopp820.zip
+          unzip cryptopp820.zip -d cryptopp820
+          make -C cryptopp820 shared all
+          make -C cryptopp820 install
       - name: pgp-packet-library
         run: |
           git clone https://github.com/summitto/pgp-packet-library.git --depth 1 --recurse-submodules --shallow-submodules
@@ -36,7 +41,12 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: dependencies
-        run: brew install boost cryptopp
+        run: |
+          brew install boost
+          curl -O https://www.cryptopp.com/cryptopp820.zip
+          unzip cryptopp820.zip -d cryptopp820
+          make -C cryptopp820 shared all
+          make -C cryptopp820 install
       - name: pgp-packet-library
         run: |
           git clone https://github.com/summitto/pgp-packet-library.git --depth 1 --recurse-submodules --shallow-submodules
