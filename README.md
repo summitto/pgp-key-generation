@@ -1,21 +1,41 @@
 ![pgp-key-generation CI](https://github.com/summitto/pgp-key-generation/workflows/pgp-key-generation%20CI/badge.svg)
 
-# PGP key generation
+# Deterministic PGP key generation
 
-This repository provides the source for a utility used for creating PGP keys using
-[libsodium](https://download.libsodium.org/doc/ "Introduction - Libsodium documentation")
-(for ed- and curve25519 keys) or
-[Crypto++](https://www.cryptopp.com/ "Crypto++ Library | Free C++ Class Library of Cryptographic Schemes")
-(for nist-p256 and RSA keys).
+* [Dependencies](#dependencies)
+* [Audit](#audit)
+* [How to use it](#how-to-use-it)
+  * [Prepare your key generation computer](#prepare-your-key-generation-computer)
+  * [Prepare pen and paper or Cryptosteel](#prepare-pen-and-paper-or-cryptosteel)
+  * [Generate keys](#generate-keys)
+  * [Extend key expiry](#extend-key-expiry)
+* [Technical details](#technical-details)
+  * [Assumptions](#assumptions)
+  * [Upgrading hardware tokens](#upgrading-hardware-tokens)
+  * [Swapping secret data to disk](#swapping-secret-data-to-disk)
+* [Static analysis](#static-analysis)
+  * [CppCheck](#cppcheck)
+  * [Clang Tidy](#clang-tidy)
 
-Generating keys will also output a 64-character hexadecimal seed value, which, in
-combination with the chosen passphrase, can be used to recreate the exact same key.
+This repository provides the source for a utility which can be used for
+creating PGP keys using [libsodium](https://download.libsodium.org/doc/
+"Introduction - Libsodium documentation") (for ed25519 and curve25519 keys) or
+[Crypto++](https://www.cryptopp.com/ "Crypto++ Library | Free C++ Class Library
+of Cryptographic Schemes") (for Nist-p256 and RSA keys).
 
-This means that keeping the seed value and passphrase in a safe location can protect
-you against losing keys, since they can always be generated again.
+Generating keys will also output a mnemonic recovery phrase, which, in
+combination with a chosen passphrase and creation date, can be used to recreate
+the exact same keys. Safely storing the recovery phrase, passphrase and
+creation date protect you from losing your PGP keys, since the values allow you
+to generate your PGP keys again.
 
-**Although an audit has been completed (see [below](#audit)), use this security-related
-tool at your own risk!**
+The pgp-key-generation utility is just one example of how you can choose to
+generate your keys using the
+[pgp-packet-library](https://github.com/summitto/pgp-packet-library/). The
+utility generates a master key and derives one main key and three subkeys.
+
+**Although an audit has been completed (see [below](#audit)), use this
+security-related tool at your own risk!**
 
 ## Dependencies
 
@@ -51,72 +71,192 @@ Security](https://radicallyopensecurity.com/) in November 2019:
     could lead to the choosing of weak key material or cryptographic
     algorithms.
 
-[Read full audit report](https://github.com/summitto/pgp-key-generation/audit.pdf)
+[Read the full audit
+report](https://github.com/summitto/pgp-key-generation/audit.pdf).
 
 
-## Generating new keys
+## How to use it
 
-Please read all of the steps below thoroughly before actually starting to
-generate a key.
+In our [blog
+post](https://blog.summitto.com/posts/deterministic_pgp_deep_post/) we describe
+in more detail which measures you can take with regards to preventing your key
+from leaking to adversaries. Below we note the next steps regarding actual usage.
 
-- If you have a new smartcard, change the user and admin pin first. See:
-  https://www.gnupg.org/howtos/card-howto/en/ch03s02.html
-- install `GnuPG` and this utility on a secure, offline computer. See:
-  https://github.com/summitto/raspbian_setup
-- install `GnuPG` on your main device. Optionally, `scdaemon`, `libccid` and
-  `pcscd` may need to be installed.
-- raise the lockable memory limit to at least 1M in `/etc/security/limits.conf` and get a new session
-- run key generation utility, for example using:
+### Prepare your key generation computer
+
+Start the computer on which you will generate keys. If you followed the
+instructions mentioned [here](https://github.com/summitto/raspbian_setup), a
+ramdisk will be set up in the `~/ramdisk folder`. This allows you to indicate a
+`keyfile` in the ramdisk (e.g. `~/ramdisk/keyfile.asc`) in order to ensure no
+sensitive key material is stored permanently. 
+
+### Prepare pen and paper or Cryptosteel
+
+The main purpose of the pgp-key-generation utility is that it allows you to
+recover your PGP keys deterministically. If you lose access to your keys in
+the future and want to recover them, you will need:  
+- (1) the key creation time  
+- (2) the mnemonic recovery phrase which is exported by the utility  
+
+Additionally, you may also want to back up:  
+- (3) the pgp-key-generation repository if you want to be sure that you will
+  have access in the future  
+- (4) the public key fingerprint of your master key to allow yourself to verify
+  whether recovery occurred correctly  
+
+The recovery phrase is a mnemonic, and you can either export it encrypted or
+unencrypted. A mnemonic is just a more user-friendly way to display your
+cryptographic key. If you want to learn more about how mnemonics work, you can
+find more information [here](https://en.bitcoinwiki.org/wiki/Mnemonic_phrase).
+The unencrypted seed is 24 mnemonic words long, the encrypted seed is 41
+mnemonic words long due to encryption.
+
+### Generate keys
+
+When running this utility, you can indicate the details of your pgp keys either
+through standard input or as flags (which is convenient when you want to run
+the program multiple times, but which may also record the information in e.g.
+your bash history). You can see which flags are available using:
+```bash
+generate-derived-key --help
 ```
-generate_derived_key -o keyfile -t eddsa -n "firstname lastname" -e email -s "2011-01-01 01:01:01" -x "2099-09-09 09:09:09" -k "12345678" -c "2011-01-01 01:01:01"
-```
-- The program will either generate a new encrypted seed using dice input, or you
-  can use an existing encrypted seed to generate your key. If you generate a
-  new seed, store it in a secure place.  
-- import the generated key file into gpg with `gpg --import ${KEYFILE}`. 
 
-If you have a smart card, you can import the private key as follows:
-- insert the smart card (e.g. Yubikey or Nitrokey)
-- run `gpg --key-edit keyid` and provide the next input
+We recommend you to use at least the flag indicating the output file path, so
+you can use [Bash tilde
+expansion](https://www.thegeekstuff.com/2010/06/bash-tilde-expansion/):
+
+```bash
+generate-derived-key -o [key_file]
 ```
+
+If you didn't specify additional flags, the program will ask you to fill in a
+number of details for your key:  
+- type of your key  
+- firstname and lastname  
+- email address  
+- signature creation time, for example: `2019-12-31 23:59:59`  
+  As mentioned above, please store this date in order to be able to recover
+  your key.
+- signature expiry time, for example: `2020-03-31 23:59:59`  
+- key creation time, for example: `2019-12-31 23:59:59`. For convenience this
+  can be the same as "signature creation time".
+- press enter to generate a new key
+- Roll a six-sided dice 100 times, shaking the dice thoroughly each roll. 100
+  dice rolls corresponds to slightly more than 256 bits of entropy. If you are
+  rolling multiple dice at the same time, read the dice left-to-right. **This
+  is important.** Humans are [horrible at generating random
+  data](http://journals.plos.org/plosone/article?id=10.1371/journal.pone.0041531)
+  and great at noticing patterns. Without a consistent heuristic like “read the
+  dice left to right”, you may subconsciously read them in a non-random order.
+  This can undermine the randomness of the data, and could be exploited to
+  guess your secret keys. The dice output will be hashed together with 32
+  additional bytes of random data from your device.
+- The program will now ask if you want to encrypt your recovery seed with a
+  password. The resulting encrypted recovery seed will be almost twice as long,
+  but will also help to assure confidentiality and integrity. (For more
+  information about the encryption used, see the
+  [Libsodium](https://libsodium.gitbook.io/doc/public-key_cryptography/authenticated_encryption#purpose)
+  documentation.
+- Next, the program will convert the recovery seed into a mnemonic recovery
+  phrase in the language of your choice! 
+- Make sure you store the mnemonic recovery phrase in a secure
+  place. **This is your only chance to backup the mnemonic.**
+- You can now export the subkey pairs to your security token: 
+```bash
+gpg --import [key_file]
+```
+- You can check using `gpg -k` whether the new key fingerprint matches the key
+  fingerprint of your previous key. This ensures that you didn't make any errors when
+  passing data to the key generation utility.
+- Insert your smartcard into the key generation computer and export your
+  private keys.
+  Instead of the key fingerprint, you can also indicate the email address of
+  the key:
+```bash
+gpg --key-edit [key_fingerprint]
 toggle
 key 1
-keytocard
-key 1
+keytocard (please select the signing key)
+key 1 (in order to deselect the key)
 key 2
 keytocard
-key 2
-key 3
+key 2 (in order to deselect the key)
+key 3 (please select the authentication key)
 keytocard
 save
 ```
-- export your public key with `gpg --export ${KEYID} > ${KEYFILE}`
-- delete the keys from gpg with `gpg --delete-secret-and-public-keys ${KEYID}`
-- copy the public key file to a usb stick and import it on your target computer
-- insert the smart card in the target computer
-- run `gpg --card-edit` and `fetch`
+- Insert your USB key into the key generation computer and export your public
+  keys:
+```bash
+gpg --export --armour [key_fingerprint] > [key_file]
+```
 
-You should now have a functional key. You can test it as follows:
+Test whether you succeeded by inserting the USB key and smartcard into another
+device and by encrypting and decrypting a file:
+```bash
+gpg --import [key_file] // import public key from USB
+gpg --list-keys         // check if key was imported correctly
+echo helloworld > test.txt   
+gpg -r [key_fingerprint] --encrypt test.txt
+gpg --decrypt test.txt.gpg
+```
 
-- list all the keys with `gpg --list-keys` 
-- create a file to encrypt with `echo helloworld > test.txt`
-- encrypt the file with `gpg -r ${KEYID} --encrypt test.txt`
-- decrypt the file with `gpg --decrypt test.txt.gpg`
+---
 
-## Updating existing keys
+As mentioned at the start of this section, you should now have backed up: 
+- (1) the key creation time  
+- (2) the mnemonic recovery phrase  
 
-If you want to change the expiry date of existing keys, you can simply follow
-the steps above again to generate a new key with a different expiry date, using
-your encrypted seed and passphrase. 
+You may also want to back up:  
+- (3) the pgp-key-generation repository 
+- (4) the public key fingerprint
 
-Note that when you import your key into gpg, you should check whether the key
-ID matches the key ID of your previous key. This ensures that you didn't make
-any errors when passing data to the key generation utility.
+### Extend key expiry
+If any of the keys were given an expiry date and they are nearing it, it's time
+for action. First, export your public key:
+```bash
+gpg --export [key_fingerprint] pub.pgp
+```
 
-Note that before importing a public key with a new expiry date into `GnuPG`,
-you must delete your old public key first. 
+Move your public key onto your key generation computer and run the
+`extend_key_expiry` executable:
+```bash
+extend_key_expiry -i [public_key_file] -o [output_key_file]
+```
 
-## Upgrading hardware tokens
+The program will ask you to fill in a number of details for your key:
+- The key expiry extension period in days  
+- The mnemnonic recovery phrase  
+- The language you used for the mnemonic  
+
+You can now import the new key on your key generation computer so you can
+export the public key to a USB key:
+```bash
+gpg --import [key_file]
+gpg --export --armour [key_fingerprint] > [key_file]
+```
+
+And finally you can import the public key into GPG on your machines. Make sure
+that you first remove the old public key from GPG before importing the new
+public keys in order to let GPG accept the new expiry dates.
+```bash
+gpg --delete-keys [key_fingerprint]
+gpg --import [key_file]
+```
+
+Your new key is ready for use! 
+
+## Technical details
+
+### Assumptions 
+Besides the fact that PGP protocol version 4 is used, the only additional
+assumptions in the utility are regarding key derivation: the
+[crypto_kdf_derive_from_key](https://libsodium.gitbook.io/doc/key_derivation#deriving-keys-from-a-single-high-entropy-key)
+and underlying BLAKE2 hash function in Libsodium are used. The key ids 1,2,3
+and 4 are used for the main key, signing subkey, encryption subkey, and
+authentication subkey respectively, with the key derivation context "pgpkeyid".
+
+### Upgrading hardware tokens
 
 Recently a security bug was found for Nitrokey Start devices, which allows
 extracting the private key from the device - the very thing it is meant to
@@ -128,7 +268,7 @@ page](https://github.com/Nitrokey/nitrokey-start-firmware/releases).
 Be aware that flashing firmware will erase keys currently residing on the
 device.
 
-## Warnings and limitations
+### Swapping secret data to disk
 
 To avoid private key data from leaking, whenever possible, secret data is
 prevented from being swapped to disk. This is not guaranteed to work reliably
