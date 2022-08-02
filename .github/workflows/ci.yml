@@ -80,7 +80,7 @@ jobs:
       - name: build
         run: cmake --build build -j$(nproc)
       - name: test
-        run: make -C build test
+        run: ulimit -l 1024 && make -C build test
 
   clang-14:
     name: clang-14
