@@ -80,7 +80,7 @@ jobs:
       - name: build
         run: cmake --build build -j$(nproc)
       - name: test
-        run: make -C build test
+        run: sudo bash -c "ulimit -l 65536 && ulimit -a && make -C build test"
 
   clang-latest:
     name: clang-9
