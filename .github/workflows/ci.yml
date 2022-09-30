@@ -32,7 +32,7 @@ jobs:
       - name: build
         run: cmake --build build
       - name: test
-        run: make -C build test
+        run: sudo bash -c "ulimit -l 65536 && ulimit -a && make -C build test"
 
   clang-6:
     name: clang-6
@@ -56,7 +56,7 @@ jobs:
       - name: build
         run: cmake --build build -j$(nproc)
       - name: test
-        run: make -C build test
+        run: sudo bash -c "ulimit -l 65536 && ulimit -a && make -C build test"
 
   clang-9:
     name: clang-9
@@ -80,7 +80,7 @@ jobs:
       - name: build
         run: cmake --build build -j$(nproc)
       - name: test
-        run: make -C build test
+        run: sudo bash -c "ulimit -l 65536 && ulimit -a && make -C build test"
 
   clang-14:
     name: clang-14
@@ -103,7 +103,7 @@ jobs:
       - name: build
         run: cmake --build build -j$(nproc)
       - name: test
-        run: make -C build test
+        run: sudo bash -c "ulimit -l 65536 && ulimit -a && make -C build test"
 
   gcc-8:
     name: gcc-8
@@ -127,7 +127,7 @@ jobs:
       - name: build
         run: cmake --build build -j$(nproc)
       - name: test
-        run: make -C build test
+        run: sudo bash -c "ulimit -l 65536 && ulimit -a && make -C build test"
 
   gcc-9:
     name: gcc-9
@@ -150,7 +150,7 @@ jobs:
       - name: build
         run: cmake --build build -j$(nproc)
       - name: test
-        run: make -C build test
+        run: sudo bash -c "ulimit -l 65536 && ulimit -a && make -C build test"
 
   gcc-11:
     name: gcc-11
@@ -173,4 +173,4 @@ jobs:
       - name: build
         run: cmake --build build -j$(nproc)
       - name: test
-        run: make -C build test
+        run: sudo bash -c "ulimit -l 65536 && ulimit -a && make -C build test"
