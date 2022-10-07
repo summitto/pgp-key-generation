@@ -2,41 +2,16 @@ name: "pgp-key-generation CI"
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - master
   pull_request:
-    branches: [ master ]
+    branches:
+      - master
 
 jobs:
-  appleclang-minimum:
-    name: appleclang-10.0.1
-    runs-on: macos-latest
-    env:
-      DEVELOPER_DIR: /Applications/Xcode_10.3.app/Contents/Developer
-
-    steps:
-      - uses: actions/checkout@v2
-      - name: dependencies
-        run: |
-          brew install boost
-          curl -O https://www.cryptopp.com/cryptopp820.zip
-          unzip cryptopp820.zip -d cryptopp820
-          make -C cryptopp820 shared all
-          make -C cryptopp820 install
-      - name: pgp-packet-library
-        run: |
-          git clone https://github.com/summitto/pgp-packet-library.git --depth 1 --recurse-submodules --shallow-submodules
-          cmake -B pgp-packet-library/build -S pgp-packet-library -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=ci-install
-          cmake --build pgp-packet-library/build --target install
-      - name: cmake
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH=ci-install
-      - name: build
-        run: cmake --build build
-      - name: test
-        run: make -C build test
-
   appleclang-latest:
-    name: appleclang-11.0.3
-    runs-on: macos-latest
+    name: appleclang-13.0.0
+    runs-on: macos-11
 
     steps:
       - uses: actions/checkout@v2
@@ -57,11 +32,11 @@ jobs:
       - name: build
         run: cmake --build build
       - name: test
-        run: make -C build test
+        run: sudo bash -c "ulimit -l 65536 && ulimit -a && make -C build test"
 
-  clang-minimum:
+  clang-6:
     name: clang-6
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
       - uses: actions/checkout@v2
@@ -70,6 +45,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libsodium-dev libcrypto++-dev libboost-all-dev
           pip3 install dataclasses
+          sudo apt-get install -y clang-6.0 lldb-6.0 lld-6.0 clang-format-6.0
       - name: pgp-packet-library
         run: |
           git clone https://github.com/summitto/pgp-packet-library.git --depth 1 --recurse-submodules --shallow-submodules
@@ -80,11 +56,35 @@ jobs:
       - name: build
         run: cmake --build build -j$(nproc)
       - name: test
-        run: make -C build test
+        run: sudo bash -c "ulimit -l 65536 && ulimit -a && make -C build test"
 
-  clang-latest:
+  clang-9:
     name: clang-9
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsodium-dev libcrypto++-dev libboost-all-dev
+          pip3 install dataclasses
+          sudo apt-get install -y clang-9 lldb-9 lld-9 clang-format-9
+      - name: pgp-packet-library
+        run: |
+          git clone https://github.com/summitto/pgp-packet-library.git --depth 1 --recurse-submodules --shallow-submodules
+          cmake -B pgp-packet-library/build -S pgp-packet-library -DCMAKE_CXX_COMPILER=clang++-9 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=ci-install
+          cmake --build pgp-packet-library/build --target install -j$(nproc)
+      - name: cmake
+        run: cmake -B build -DCMAKE_CXX_COMPILER=clang++-9 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=ci-install
+      - name: build
+        run: cmake --build build -j$(nproc)
+      - name: test
+        run: sudo bash -c "ulimit -l 65536 && ulimit -a && make -C build test"
+
+  clang-14:
+    name: clang-14
+    runs-on: ubuntu-22.04
 
     steps:
       - uses: actions/checkout@v2
@@ -96,18 +96,18 @@ jobs:
       - name: pgp-packet-library
         run: |
           git clone https://github.com/summitto/pgp-packet-library.git --depth 1 --recurse-submodules --shallow-submodules
-          cmake -B pgp-packet-library/build -S pgp-packet-library -DCMAKE_CXX_COMPILER=clang++-9 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=ci-install
+          cmake -B pgp-packet-library/build -S pgp-packet-library -DCMAKE_CXX_COMPILER=clang++-14 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=ci-install
           cmake --build pgp-packet-library/build --target install -j$(nproc)
       - name: cmake
-        run: cmake -B build -DCMAKE_CXX_COMPILER=clang++-9 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=ci-install
+        run: cmake -B build -DCMAKE_CXX_COMPILER=clang++-14 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=ci-install
       - name: build
         run: cmake --build build -j$(nproc)
       - name: test
-        run: make -C build test
+        run: sudo bash -c "ulimit -l 65536 && ulimit -a && make -C build test"
 
-  gcc-minimum:
+  gcc-8:
     name: gcc-8
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
       - uses: actions/checkout@v2
@@ -116,6 +116,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libsodium-dev libcrypto++-dev libboost-all-dev
           pip3 install dataclasses
+          sudo apt-get install -y g++-8
       - name: pgp-packet-library
         run: |
           git clone https://github.com/summitto/pgp-packet-library.git  --depth 1 --recurse-submodules --shallow-submodules
@@ -126,11 +127,11 @@ jobs:
       - name: build
         run: cmake --build build -j$(nproc)
       - name: test
-        run: make -C build test
+        run: sudo bash -c "ulimit -l 65536 && ulimit -a && make -C build test"
 
-  gcc-latest:
+  gcc-9:
     name: gcc-9
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
       - uses: actions/checkout@v2
@@ -149,4 +150,27 @@ jobs:
       - name: build
         run: cmake --build build -j$(nproc)
       - name: test
-        run: make -C build test
+        run: sudo bash -c "ulimit -l 65536 && ulimit -a && make -C build test"
+
+  gcc-11:
+    name: gcc-11
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsodium-dev libcrypto++-dev libboost-all-dev
+          pip3 install dataclasses
+      - name: pgp-packet-library
+        run: |
+          git clone https://github.com/summitto/pgp-packet-library.git  --depth 1 --recurse-submodules --shallow-submodules
+          cmake -B pgp-packet-library/build -S pgp-packet-library -DCMAKE_CXX_COMPILER=g++-11 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=ci-install
+          cmake --build pgp-packet-library/build --target install -j$(nproc)
+      - name: cmake
+        run: cmake -B build -DCMAKE_CXX_COMPILER=g++-11 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=ci-install
+      - name: build
+        run: cmake --build build -j$(nproc)
+      - name: test
+        run: sudo bash -c "ulimit -l 65536 && ulimit -a && make -C build test"

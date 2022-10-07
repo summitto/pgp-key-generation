@@ -47,12 +47,12 @@ The integration testing script, which can be run using `make test` in
 the build folder, additionally requires Python 3.7 (or 3.6 with
 the `dataclasses` library) and GnuPG to be installed.
 
-The tool was compiled and tested with the following compilers
-| Compiler      | Version         |
-| :---          |     :---:       |
-| Apple clang   | 10.0.3          |
-| clang         | 6.0.0           |
-| gcc           | 8.0.0           |
+The tool was compiled and tested with the following compilers:
+| Compiler    | Version(s)               | Environment    |
+|:------------|:------------------------:|:---------------|
+| Apple clang | `13.0.0.13000029`        | `macOS-11.6.6` |
+| clang++     | `6.0.1`/`9.0.1`/`14.0.0` | `ubuntu-20.04` |
+| g++         | `8.4.0`/`9.4.0`/`11.2.0` | `ubuntu-20.04` |
 
 ## Audit
 
@@ -60,13 +60,13 @@ This tool has been audited by [Radically Open
 Security](https://radicallyopensecurity.com/) in November 2019:
 
     During this review we focused on weak key material being generated and
-    sensitive data being leaked.  
-    
+    sensitive data being leaked.
+
     We found a couple of issues which would probably not cause any problems if
     the tool is used as intended. Operator errors can never be ruled out,
     however, so it makes sense to build defense in depth to limit the
-    possibilities of such a thing happening.  
-    
+    possibilities of such a thing happening.
+
     We also found two cases of invalid or insecure parameters being used, which
     could lead to the choosing of weak key material or cryptographic
     algorithms.
@@ -88,21 +88,21 @@ Start the computer on which you will generate keys. If you followed the
 instructions mentioned [here](https://github.com/summitto/raspbian_setup), a
 ramdisk will be set up in the `~/ramdisk folder`. This allows you to indicate a
 `keyfile` in the ramdisk (e.g. `~/ramdisk/keyfile.asc`) in order to ensure no
-sensitive key material is stored permanently. 
+sensitive key material is stored permanently.
 
 ### Prepare pen and paper or Cryptosteel
 
 The main purpose of the pgp-key-generation utility is that it allows you to
 recover your PGP keys deterministically. If you lose access to your keys in
-the future and want to recover them, you will need:  
-- (1) the key creation time  
-- (2) the mnemonic recovery phrase which is exported by the utility  
+the future and want to recover them, you will need:
+- (1) the key creation time
+- (2) the mnemonic recovery phrase which is exported by the utility
 
-Additionally, you may also want to back up:  
+Additionally, you may also want to back up:
 - (3) the pgp-key-generation repository if you want to be sure that you will
-  have access in the future  
+  have access in the future
 - (4) the public key fingerprint of your master key to allow yourself to verify
-  whether recovery occurred correctly  
+  whether recovery occurred correctly
 
 The recovery phrase is a mnemonic, and you can either export it encrypted or
 unencrypted. A mnemonic is just a more user-friendly way to display your
@@ -130,14 +130,14 @@ generate-derived-key -o [key_file]
 ```
 
 If you didn't specify additional flags, the program will ask you to fill in a
-number of details for your key:  
-- type of your key  
-- firstname and lastname  
-- email address  
-- signature creation time, for example: `2019-12-31 23:59:59`  
+number of details for your key:
+- type of your key
+- firstname and lastname
+- email address
+- signature creation time, for example: `2019-12-31 23:59:59`
   As mentioned above, please store this date in order to be able to recover
   your key.
-- signature expiry time, for example: `2020-03-31 23:59:59`  
+- signature expiry time, for example: `2020-03-31 23:59:59`
 - key creation time, for example: `2019-12-31 23:59:59`. For convenience this
   can be the same as "signature creation time".
 - press enter to generate a new key
@@ -158,10 +158,10 @@ number of details for your key:
   [Libsodium](https://libsodium.gitbook.io/doc/public-key_cryptography/authenticated_encryption#purpose)
   documentation.
 - Next, the program will convert the recovery seed into a mnemonic recovery
-  phrase in the language of your choice! 
+  phrase in the language of your choice!
 - Make sure you store the mnemonic recovery phrase in a secure
   place. **This is your only chance to backup the mnemonic.**
-- You can now export the subkey pairs to your security token: 
+- You can now export the subkey pairs to your security token:
 ```bash
 gpg --import [key_file]
 ```
@@ -196,19 +196,19 @@ device and by encrypting and decrypting a file:
 ```bash
 gpg --import [key_file] // import public key from USB
 gpg --list-keys         // check if key was imported correctly
-echo helloworld > test.txt   
+echo helloworld > test.txt
 gpg -r [key_fingerprint] --encrypt test.txt
 gpg --decrypt test.txt.gpg
 ```
 
 ---
 
-As mentioned at the start of this section, you should now have backed up: 
-- (1) the key creation time  
-- (2) the mnemonic recovery phrase  
+As mentioned at the start of this section, you should now have backed up:
+- (1) the key creation time
+- (2) the mnemonic recovery phrase
 
-You may also want to back up:  
-- (3) the pgp-key-generation repository 
+You may also want to back up:
+- (3) the pgp-key-generation repository
 - (4) the public key fingerprint
 
 ### Extend key expiry
@@ -225,9 +225,9 @@ extend_key_expiry -i [public_key_file] -o [output_key_file]
 ```
 
 The program will ask you to fill in a number of details for your key:
-- The key expiry extension period in days  
-- The mnemnonic recovery phrase  
-- The language you used for the mnemonic  
+- The key expiry extension period in days
+- The mnemnonic recovery phrase
+- The language you used for the mnemonic
 
 You can now import the new key on your key generation computer so you can
 export the public key to a USB key:
@@ -244,11 +244,11 @@ gpg --delete-keys [key_fingerprint]
 gpg --import [key_file]
 ```
 
-Your new key is ready for use! 
+Your new key is ready for use!
 
 ## Technical details
 
-### Assumptions 
+### Assumptions
 Besides the fact that PGP protocol version 4 is used, the only additional
 assumptions in the utility are regarding key derivation: the
 [crypto_kdf_derive_from_key](https://libsodium.gitbook.io/doc/key_derivation#deriving-keys-from-a-single-high-entropy-key)
@@ -288,4 +288,3 @@ found.
 
 If the `clang-tidy` binary can be found, the `tidy` target will be available
 for `make` to run the checks configured in `.clang-tidy`.
-
