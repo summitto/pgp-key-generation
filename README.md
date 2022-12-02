@@ -225,6 +225,7 @@ extend_key_expiry -i [public_key_file] -o [output_key_file]
 ```
 
 The program will ask you to fill in a number of details for your key:
+- The key derivation (e.g. `pgpkeyid`)
 - The key expiry extension period in days
 - The mnemnonic recovery phrase
 - The language you used for the mnemonic
